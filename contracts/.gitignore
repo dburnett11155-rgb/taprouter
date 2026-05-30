@@ -1,0 +1,10 @@
+# Foundry build artifacts
+out/
+cache/
+
+# Dependencies - track with git submodules or install fresh
+lib/
+
+# Environment
+.env
+.env.local
