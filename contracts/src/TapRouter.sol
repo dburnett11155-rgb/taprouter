@@ -81,11 +81,6 @@ contract TapRouter is OApp, ReentrancyGuard {
 
         _lzSend(dstEid, message, options, MessagingFee(fee.nativeFee, 0), payable(msg.sender));
 
-        uint256 excess = msg.value - fee.nativeFee;
-        if (excess > 0) {
-            (bool ok,) = msg.sender.call{value: excess}("");
-            require(ok, "Refund failed");
-        }
 
         emit SwapInitiated(swapId, msg.sender, recipient, amount);
     }
@@ -98,6 +93,12 @@ contract TapRouter is OApp, ReentrancyGuard {
     }
 
     // Send-only OApp: inbound messages are not expected.
+    // Forward full msg.value; LZ endpoint refunds any excess above the fee to the refundAddress.
+    function _payNative(uint256 _nativeFee) internal view override returns (uint256) {
+        if (msg.value < _nativeFee) revert InsufficientFee();
+        return msg.value;
+    }
+
     function _lzReceive(Origin calldata, bytes32, bytes calldata, address, bytes calldata) internal override {
         revert("TapRouter: receive disabled");
     }
