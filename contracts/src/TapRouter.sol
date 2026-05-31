@@ -28,6 +28,7 @@ contract TapRouter is OApp, ReentrancyGuard {
     uint128 public lzReceiveGas;
     bool public paused;
 
+    uint256 public swapNonce;
     mapping(bytes32 => bool) public swapInitiated;
 
     event SwapInitiated(bytes32 indexed swapId, address indexed sender, address indexed recipient, uint256 amount);
@@ -63,7 +64,7 @@ contract TapRouter is OApp, ReentrancyGuard {
         if (amount < MIN_SWAP_AMOUNT || amount > MAX_SWAP_AMOUNT) revert InvalidAmount();
         if (recipient == address(0)) revert ZeroAddress();
 
-        bytes32 swapId = keccak256(abi.encodePacked(msg.sender, recipient, amount, block.timestamp, block.number));
+        bytes32 swapId = keccak256(abi.encodePacked(msg.sender, recipient, amount, block.timestamp, block.number, swapNonce++));
         if (swapInitiated[swapId]) revert SwapAlreadyInitiated();
         swapInitiated[swapId] = true;
 
