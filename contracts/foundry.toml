@@ -9,6 +9,9 @@ evm_version = "cancun"
 
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-    "@layerzerolabs/=lib/layerzero-v2/packages/layerzero-v2/evm/oapp/contracts/",
+    "@layerzerolabs/oapp/=lib/layerzero-v2/packages/layerzero-v2/evm/oapp/contracts/oapp/",
+    "@layerzerolabs/lz-evm-protocol-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/protocol/",
+    "@layerzerolabs/lz-evm-messagelib-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/messagelib/",
+    "solidity-bytes-utils/=lib/solidity-bytes-utils/",
     "forge-std/=lib/forge-std/src/"
 ]
