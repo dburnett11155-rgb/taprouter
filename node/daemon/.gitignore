@@ -1,0 +1,10 @@
+# Compiled binary
+/taprouterd
+# (binary excluded via /taprouterd above)
+# Go build/test artifacts
+*.exe
+*.test
+*.out
+# Local env (never commit secrets)
+.env
+.env.local
