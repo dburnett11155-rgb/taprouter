@@ -1,6 +1,7 @@
-# Compiled binary
+# Compiled binaries (built from cmd/* — named after their dir)
 /taprouterd
-# (binary excluded via /taprouterd above)
+/testmint
+/testattest
 # Go build/test artifacts
 *.exe
 *.test
