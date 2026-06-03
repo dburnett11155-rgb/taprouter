@@ -26,6 +26,9 @@ const (
 
 	// Circle attestation API (testnet/sandbox)
 	CircleIrisAPI = "https://iris-api-sandbox.circle.com"
+
+	// CCTP MessageTransmitter on Base Sepolia (where mints are submitted)
+	BaseMessageTransmitter = "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD"
 )
 
 // Config holds all secrets and deployed addresses loaded from .env.local.
