@@ -14,6 +14,8 @@ import (
 // Settler watches the router for swaps and tracks ones pending settlement.
 type Settler struct {
 	arb       *ethclient.Client
+	base      *ethclient.Client
+	privKey   string
 	router    common.Address
 	interval  time.Duration
 	lastBlock uint64
@@ -23,9 +25,11 @@ type Settler struct {
 }
 
 // New creates a Settler starting from the given block, polling every interval.
-func New(arb *ethclient.Client, router common.Address, startBlock uint64, interval time.Duration) *Settler {
+func New(arb, base *ethclient.Client, privKey string, router common.Address, startBlock uint64, interval time.Duration) *Settler {
 	return &Settler{
 		arb:       arb,
+		base:      base,
+		privKey:   privKey,
 		router:    router,
 		interval:  interval,
 		lastBlock: startBlock,
@@ -55,6 +59,7 @@ func (s *Settler) Run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			s.discover(ctx)
+			s.drain(ctx)
 		}
 	}
 }

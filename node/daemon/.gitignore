@@ -2,6 +2,9 @@
 /taprouterd
 /testmint
 /testattest
+/testloop
+/testscan
+/testscan2
 # Go build/test artifacts
 *.exe
 *.test
