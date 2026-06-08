@@ -2,31 +2,47 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/dburnett11155-rgb/taprouter/node/daemon/internal/blockchain"
 	"github.com/dburnett11155-rgb/taprouter/node/daemon/internal/config"
+	"github.com/dburnett11155-rgb/taprouter/node/daemon/internal/settler"
 )
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	cfg, err := config.Load("/home/dburnett11155/taprouter/.env.local")
 	if err != nil {
-		log.Fatalf("config load failed: %v", err)
+		log.Fatalf("config: %v", err)
 	}
-	fmt.Println("TapRouter daemon — config loaded OK")
-	fmt.Printf("  Router (Arb):     %s\n", cfg.RouterAddress)
-	fmt.Printf("  Messenger (Base): %s\n", cfg.MessengerAddress)
-	fmt.Printf("  Vault (Base):     %s\n", cfg.VaultAddress)
-	fmt.Printf("  DstEid:           %d\n", cfg.DstEid)
-
-	ctx := context.Background()
 	clients, err := blockchain.Connect(ctx)
 	if err != nil {
-		log.Fatalf("chain connect failed: %v", err)
+		log.Fatalf("connect: %v", err)
 	}
 	defer clients.Close()
-	fmt.Println("Connected and verified both chains:")
-	fmt.Println("  Arbitrum Sepolia (chain 421614) OK")
-	fmt.Println("  Base Sepolia (chain 84532) OK")
+
+	latest, err := clients.Arb.BlockNumber(ctx)
+	if err != nil {
+		log.Fatalf("latest: %v", err)
+	}
+
+	router := common.HexToAddress(cfg.RouterAddress)
+	s := settler.New(clients.Arb, clients.Base, cfg.PrivateKey, router, latest, 10*time.Second)
+
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+		<-sig
+		cancel()
+	}()
+
+	s.Run(ctx)
 }
