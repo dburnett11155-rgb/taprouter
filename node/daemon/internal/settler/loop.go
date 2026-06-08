@@ -9,6 +9,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+
+	"github.com/dburnett11155-rgb/taprouter/node/daemon/internal/db"
 )
 
 // Settler watches the router for swaps and tracks ones pending settlement.
@@ -22,10 +24,11 @@ type Settler struct {
 
 	mu      sync.Mutex
 	pending map[common.Hash]SwapEvent // keyed by swapId
+	store   *db.Store                 // optional Redis persistence (nil = none)
 }
 
 // New creates a Settler starting from the given block, polling every interval.
-func New(arb, base *ethclient.Client, privKey string, router common.Address, startBlock uint64, interval time.Duration) *Settler {
+func New(arb, base *ethclient.Client, privKey string, router common.Address, startBlock uint64, interval time.Duration, store *db.Store) *Settler {
 	return &Settler{
 		arb:       arb,
 		base:      base,
@@ -34,6 +37,7 @@ func New(arb, base *ethclient.Client, privKey string, router common.Address, sta
 		interval:  interval,
 		lastBlock: startBlock,
 		pending:   make(map[common.Hash]SwapEvent),
+		store:     store,
 	}
 }
 
@@ -95,4 +99,9 @@ func (s *Settler) discover(ctx context.Context) {
 	s.mu.Unlock()
 
 	s.lastBlock = latest
+	if s.store != nil {
+		if err := s.store.SaveLastBlock(ctx, latest); err != nil {
+			log.Printf("settler: persist lastBlock failed: %v", err)
+		}
+	}
 }
