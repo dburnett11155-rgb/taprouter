@@ -123,7 +123,7 @@ contract TapVault is ReentrancyGuard, Ownable {
         // already fronted, WITHOUT counting the incoming CCTP amountIn.
         bool canFront =
             (outstandingFronted + amountIn <= maxFront) &&
-            (bal >= accountedBalance() + outstandingFronted + payout + protocolFee);
+            (bal >= flashReserve + accruedLpFees + outstandingFronted + payout + protocolFee);
 
         bool fronted;
         if (canFront) {
@@ -157,7 +157,8 @@ contract TapVault is ReentrancyGuard, Ownable {
         if (msg.sender != settler && msg.sender != owner()) revert Unauthorized();
 
         uint256 bal      = usdc.balanceOf(address(this));
-        uint256 floor    = accountedBalance();
+        uint256 assigned = accountedBalance();
+        uint256 floor    = assigned > outstandingFronted ? assigned - outstandingFronted : 0;
         if (bal <= floor) {
             emit Reconciled(0, outstandingFronted);
             return;
