@@ -52,7 +52,8 @@ func main() {
 	}
 
 	router := common.HexToAddress(cfg.RouterAddress)
-	s := settler.New(clients.Arb, clients.Base, cfg.PrivateKey, router, startBlock, 10*time.Second, store)
+	vault := common.HexToAddress(cfg.VaultAddress)
+	s := settler.New(clients.Arb, clients.Base, cfg.PrivateKey, router, vault, startBlock, 10*time.Second, store)
 
 	go func() {
 		sig := make(chan os.Signal, 1)

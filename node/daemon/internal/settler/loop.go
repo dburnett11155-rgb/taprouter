@@ -25,10 +25,11 @@ type Settler struct {
 	mu      sync.Mutex
 	pending map[common.Hash]SwapEvent // keyed by swapId
 	store   *db.Store                 // optional Redis persistence (nil = none)
+	vault   common.Address            // TapVault, for reconcile() after mint
 }
 
 // New creates a Settler starting from the given block, polling every interval.
-func New(arb, base *ethclient.Client, privKey string, router common.Address, startBlock uint64, interval time.Duration, store *db.Store) *Settler {
+func New(arb, base *ethclient.Client, privKey string, router, vault common.Address, startBlock uint64, interval time.Duration, store *db.Store) *Settler {
 	return &Settler{
 		arb:       arb,
 		base:      base,
@@ -38,6 +39,7 @@ func New(arb, base *ethclient.Client, privKey string, router common.Address, sta
 		lastBlock: startBlock,
 		pending:   make(map[common.Hash]SwapEvent),
 		store:     store,
+		vault:     vault,
 	}
 }
 

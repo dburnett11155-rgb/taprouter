@@ -44,6 +44,11 @@ func (s *Settler) drain(ctx context.Context) {
 			continue
 		}
 
+		if rtx, rerr := bridge.Reconcile(ctx, s.base, s.privKey, s.vault); rerr != nil {
+			log.Printf("settler: reconcile after mint failed for %s: %v (mint OK, vault will reconcile on next arrival)", e.SwapID.Hex(), rerr)
+		} else {
+			log.Printf("settler: reconciled swap %s — tx %s", e.SwapID.Hex(), rtx.Hex())
+		}
 		log.Printf("settler: SETTLED swap %s — mint tx %s", e.SwapID.Hex(), mintTx.Hex())
 		s.remove(e.SwapID)
 	}
