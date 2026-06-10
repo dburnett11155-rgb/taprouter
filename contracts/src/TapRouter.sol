@@ -16,7 +16,7 @@ contract TapRouter is OApp, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using OptionsBuilder for bytes;
 
-    uint32 public constant BASE_CCTP_DOMAIN = 6;
+    uint32 public destCctpDomain; // set per-direction at deploy (Base=6, Arbitrum=3)
     uint256 public constant MIN_SWAP_AMOUNT = 1e6;
     uint256 public constant MAX_SWAP_AMOUNT = 10_000e6;
 
@@ -48,13 +48,15 @@ contract TapRouter is OApp, ReentrancyGuard {
         address _cctpMessenger,
         address _tapVault,
         address _protocolWallet,
-        uint32 _dstEid
+        uint32 _dstEid,
+        uint32 _destCctpDomain
     ) OApp(_endpoint, msg.sender) Ownable(msg.sender) {
         if (_usdc == address(0) || _endpoint == address(0) || _cctpMessenger == address(0)) revert ZeroAddress();
         usdc = IERC20(_usdc);
         cctpMessenger = ICCTPTokenMessenger(_cctpMessenger);
         tapVault = _tapVault;
         protocolWallet = _protocolWallet;
+        destCctpDomain = _destCctpDomain;
         dstEid = _dstEid;
         lzReceiveGas = 200_000;
     }
@@ -78,7 +80,7 @@ contract TapRouter is OApp, ReentrancyGuard {
 
         usdc.forceApprove(address(cctpMessenger), amount);
         bytes32 mintRecipient = bytes32(uint256(uint160(tapVault)));
-        cctpMessenger.depositForBurn(amount, BASE_CCTP_DOMAIN, mintRecipient, address(usdc));
+        cctpMessenger.depositForBurn(amount, destCctpDomain, mintRecipient, address(usdc));
 
         _lzSend(dstEid, message, options, MessagingFee(fee.nativeFee, 0), payable(msg.sender));
 

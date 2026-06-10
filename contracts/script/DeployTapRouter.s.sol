@@ -14,6 +14,7 @@ contract DeployTapRouter is Script {
         address deployer    = vm.addr(deployerKey);
         address tapVault    = vm.envAddress("TAP_VAULT_ADDRESS");
         uint32  dstEid      = uint32(vm.envUint("DST_EID"));
+        uint32  destDomain  = uint32(vm.envUint("DEST_CCTP_DOMAIN"));
 
         vm.startBroadcast(deployerKey);
 
@@ -23,7 +24,8 @@ contract DeployTapRouter is Script {
             CCTP_MESSENGER,
             tapVault,
             deployer,
-            dstEid
+            dstEid,
+            destDomain
         );
 
         vm.stopBroadcast();
