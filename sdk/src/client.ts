@@ -151,9 +151,8 @@ export interface WaitForDeliveryOptions {
  * waitForDelivery() — poll the destination vault until the swap is delivered.
  *
  * NOTE: standalone polling for SDK consumers without access to the daemon's
- * Redis state. Intentionally simple (poll + decode events) rather than
- * re-implementing the daemon's CCTP attestation / stuck-message-recovery
- * logic — that logic stays owned by the daemon.
+ * Redis state. Queries a bounded recent block window in pages to respect
+ * public-RPC eth_getLogs limits.
  */
 export async function waitForDelivery(
   swapId: Hash,
@@ -170,14 +169,35 @@ export async function waitForDelivery(
 
   const start = Date.now();
 
+  // Public RPCs cap eth_getLogs at a bounded block range (Base Sepolia: 2000).
+  // Query a recent window backward from the current head in <=2000-block pages
+  // rather than scanning all history.
+  const MAX_RANGE = 1500n; // safety margin under the 2000 cap
+  const LOOKBACK = 30000n; // ~how far back to search (covers delivery latency + buffer)
+
   while (Date.now() - start < timeoutMs) {
-    const executedLogs = await publicClient.getLogs({
-      address: vault,
-      event: swapExecutedAbi,
-      args: { swapId },
-      fromBlock: "earliest",
-      toBlock: "latest",
-    });
+    const head = await publicClient.getBlockNumber();
+    const earliest = head > LOOKBACK ? head - LOOKBACK : 0n;
+
+    const getWindow = (from: bigint, to: bigint) =>
+      publicClient.getLogs({
+        address: vault,
+        event: swapExecutedAbi,
+        args: { swapId },
+        fromBlock: from,
+        toBlock: to,
+      });
+
+    let executedLogs: Awaited<ReturnType<typeof getWindow>> = [];
+    for (let to = head; to >= earliest; to -= MAX_RANGE + 1n) {
+      const from = to > earliest + MAX_RANGE ? to - MAX_RANGE : earliest;
+      const logs = await getWindow(from, to);
+      if (logs.length > 0) {
+        executedLogs = logs;
+        break;
+      }
+      if (from === earliest) break;
+    }
 
     if (executedLogs.length > 0) {
       const fronted = executedLogs[0].args.fronted ?? false;
