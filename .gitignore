@@ -1,0 +1,25 @@
+# Secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Node
+node_modules/
+dist/
+*.log
+
+# Foundry
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/foundry.lock
+
+# Go
+*.exe
+*.test
+vendor/
+
+# OS
+.DS_Store
