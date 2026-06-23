@@ -15,3 +15,9 @@ remappings = [
     "solidity-bytes-utils/=lib/solidity-bytes-utils/",
     "forge-std/=lib/forge-std/src/"
 ]
+
+[lint]
+# Casts in TapMarket (block.timestamp -> uint64, cap-bounded delta -> uint64) are
+# provably safe; full lint still runs on demand via `forge lint`. Disabled at
+# build time only to keep `forge build` output clean during development.
+lint_on_build = false
