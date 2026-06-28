@@ -1,0 +1,73 @@
+"""attest.py — Hermes signs EIP-712 use-attestations that TapMarket.settle() accepts.
+
+Mirrors the contract's digest exactly:
+  DOMAIN_SEPARATOR = keccak256(abi.encode(
+     keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+     keccak256("TapMarket"), keccak256("1"), chainId, market))
+  structHash = keccak256(abi.encode(ATTEST_TYPEHASH, buyer, listingId, cumulativeUses, expiry))
+  digest = keccak256(0x1901 ++ DOMAIN_SEPARATOR ++ structHash)
+"""
+import os
+import time
+from dotenv import load_dotenv
+from web3 import Web3
+from eth_account import Account
+from eth_account.messages import encode_typed_data
+
+load_dotenv("/home/dburnett11155/taprouter/.env.local")
+
+MARKET = Web3.to_checksum_address("0xBfd085f192d2246F1BFBe386DF399335dc894f2c")
+CHAIN_ID = 84532
+
+
+def sign_attestation(buyer: str, listing_id: int, cumulative_uses: int, expiry: int) -> bytes:
+    """Hermes signs an attestation. Returns the 65-byte signature."""
+    hermes_key = os.getenv("HERMES_PRIVATE_KEY")
+    if not hermes_key:
+        raise RuntimeError("HERMES_PRIVATE_KEY not set")
+
+    typed = {
+        "types": {
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"},
+            ],
+            "Attestation": [
+                {"name": "buyer", "type": "address"},
+                {"name": "listingId", "type": "uint256"},
+                {"name": "cumulativeUses", "type": "uint256"},
+                {"name": "expiry", "type": "uint256"},
+            ],
+        },
+        "primaryType": "Attestation",
+        "domain": {
+            "name": "TapMarket",
+            "version": "1",
+            "chainId": CHAIN_ID,
+            "verifyingContract": MARKET,
+        },
+        "message": {
+            "buyer": Web3.to_checksum_address(buyer),
+            "listingId": listing_id,
+            "cumulativeUses": cumulative_uses,
+            "expiry": expiry,
+        },
+    }
+
+    encoded = encode_typed_data(full_message=typed)
+    signed = Account.sign_message(encoded, private_key=hermes_key)
+    return signed.signature
+
+
+if __name__ == "__main__":
+    # Self-test: sign an attestation and recover the signer, confirm it's Hermes.
+    from eth_account.messages import encode_typed_data
+    hermes_addr = Web3.to_checksum_address(os.getenv("HERMES_ADDRESS"))
+    buyer = "0xF4747E7c6B0B127939FE4Fa28Bb3b89d5Bb360b5"
+    expiry = int(time.time()) + 3600
+    sig = sign_attestation(buyer, 1, 1, expiry)
+    print("signature:", sig.hex())
+    print("length:", len(sig), "(expect 65)")
+    print("Hermes address:", hermes_addr)
