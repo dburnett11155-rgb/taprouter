@@ -6,7 +6,7 @@ import { createKernelAccount } from "@zerodev/sdk";
 import { KERNEL_V3_1, getEntryPoint } from "@zerodev/sdk/constants";
 import { toPermissionValidator, serializePermissionAccount } from "@zerodev/permissions";
 import { toECDSASigner } from "@zerodev/permissions/signers";
-import { toCallPolicy, CallPolicyVersion } from "@zerodev/permissions/policies";
+import { toCallPolicy, CallPolicyVersion, ParamCondition } from "@zerodev/permissions/policies";
 import { config } from "dotenv";
 import { appendFileSync } from "fs";
 
@@ -26,7 +26,10 @@ const sessionSigner = await toECDSASigner({ signer: privateKeyToAccount(sessionK
 
 const callPolicy = toCallPolicy({
   policyVersion: CallPolicyVersion.V0_0_4,
-  permissions: [{ target: TAP_MARKET, abi: parseAbi(["function buyPack(uint256,uint256,uint64)"]), functionName: "buyPack" }],
+  permissions: [
+    { target: TAP_MARKET, abi: parseAbi(["function buyPack(uint256,uint256,uint64)"]), functionName: "buyPack" },
+    { target: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", abi: parseAbi(["function approve(address,uint256)"]), functionName: "approve", args: [{ condition: ParamCondition.EQUAL, value: TAP_MARKET }, null] },
+  ],
 });
 
 const permissionPlugin = await toPermissionValidator(publicClient, {
