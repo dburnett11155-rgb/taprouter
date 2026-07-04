@@ -27,6 +27,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path != "/write":
             self.send_response(404); self.end_headers(); return
+        if self.headers.get("Authorization") != f"Bearer {os.getenv('TAP_SERVICE_TOKEN')}":
+            self.send_response(401); self.end_headers()
+            self.wfile.write(b'{"error":"unauthorized"}'); return
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         buyer = Web3.to_checksum_address(body["buyer"])
 

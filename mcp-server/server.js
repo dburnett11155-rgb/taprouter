@@ -19,8 +19,8 @@ const TAP_MARKET = "0xBfd085f192d2246F1BFBe386DF399335dc894f2c";
 const USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
 const ZERODEV_RPC = `https://rpc.zerodev.app/api/v3/${process.env.ZERODEV_PROJECT_ID}/chain/84532`;
 const ROUTES = {
-  hermes: { url: "http://127.0.0.1:8787/assess", body: (input, buyer) => ({ address: input.address, buyer }) },
-  scribe: { url: "http://127.0.0.1:8788/write", body: (input, buyer) => ({ ...input, buyer }) },
+  hermes: { url: "https://hermes.tappayment.io/assess", body: (input, buyer) => ({ address: input.address, buyer }) },
+  scribe: { url: "https://scribe.tappayment.io/write", body: (input, buyer) => ({ ...input, buyer }) },
 };
 
 const marketAbi = parseAbi(["function buyPack(uint256 listingId, uint256 numUses, uint64 capPerPeriod)"]);
@@ -75,7 +75,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         ]),
       });
       const receipt = await kernelClient.waitForUserOperationReceipt({ hash });
-      const res = await fetch(route.url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(route.body(args.input, account.address)) });
+      const res = await fetch(route.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN}` }, body: JSON.stringify(route.body(args.input, account.address)) });
       const out = await res.json();
       appendFileSync(new URL("./hires.jsonl", import.meta.url).pathname, JSON.stringify({ ts: new Date().toISOString(), specialist: spec.id, charge: spec.pricePerUse, payTx: receipt.receipt.transactionHash, settleTx: out.settleTx }) + "\n");
       const work = out.assessment ?? out.article ?? out;
