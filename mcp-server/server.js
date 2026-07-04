@@ -12,6 +12,14 @@ import { deserializePermissionAccount } from "@zerodev/permissions";
 import { config } from "dotenv";
 import { appendFileSync } from "fs";
 import { CATALOG } from "../agents/echo/brain.js";
+import { readFileSync, existsSync } from "fs";
+
+const WALLET_FILE = new URL("./wallet.json", import.meta.url).pathname;
+if (!existsSync(WALLET_FILE)) {
+  console.error("No wallet found. Run: node init.js");
+  process.exit(1);
+}
+const wallet = JSON.parse(readFileSync(WALLET_FILE, "utf8"));
 
 config({ path: new URL("../.env.local", import.meta.url).pathname, quiet: true });
 
@@ -23,11 +31,11 @@ const ROUTES = {
   scribe: { url: "https://scribe.tappayment.io/write", body: (input, buyer) => ({ ...input, buyer }) },
 };
 
-const marketAbi = parseAbi(["function buyPack(uint256 listingId, uint256 numUses, uint64 capPerPeriod)"]);
+const marketAbi = parseAbi(["function buyPack(uint256 listingId, uint256 numUses, uint64 capPerPeriod)", "function escrows(uint256,address) view returns (uint256 balance, uint256 usesPurchased, uint256 usesSettled, uint64 capPerPeriod, uint64 periodStart, uint64 usedThisPeriod, uint64 purchaseTime)"]);
 const usdcAbi = parseAbi(["function approve(address,uint256)", "function balanceOf(address) view returns (uint256)"]);
 const publicClient = createPublicClient({ chain: baseSepolia, transport: http("https://sepolia.base.org") });
 const account = await deserializePermissionAccount(
-  publicClient, getEntryPoint("0.7"), KERNEL_V3_1, process.env.SESSION_APPROVAL
+  publicClient, getEntryPoint("0.7"), KERNEL_V3_1, wallet.sessionApproval
 );
 const kernelClient = createKernelAccountClient({ account, chain: baseSepolia, bundlerTransport: http(ZERODEV_RPC) });
 
@@ -68,6 +76,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const spec = CATALOG.find(s => s.id === args.specialist);
       if (!spec) return { content: [{ type: "text", text: `Unknown specialist '${args.specialist}'. Use list_specialists.` }], isError: true };
       const route = ROUTES[spec.id];
+      const esc = await publicClient.readContract({ address: TAP_MARKET, abi: marketAbi, functionName: "escrows", args: [BigInt(spec.listingId), account.address] });
+      let payTxText = "used existing prepaid pack (no new charge)";
+      if (esc[1] <= esc[2]) {
       const hash = await kernelClient.sendUserOperation({
         callData: await account.encodeCalls([
           { to: USDC, value: 0n, data: encodeFunctionData({ abi: usdcAbi, functionName: "approve", args: [TAP_MARKET, BigInt(spec.priceUnits)] }) },
@@ -75,12 +86,14 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         ]),
       });
       const receipt = await kernelClient.waitForUserOperationReceipt({ hash });
+      payTxText = `https://sepolia.basescan.org/tx/${receipt.receipt.transactionHash}`;
+      }
       const res = await fetch(route.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN}` }, body: JSON.stringify(route.body(args.input, account.address)) });
       const out = await res.json();
-      appendFileSync(new URL("./hires.jsonl", import.meta.url).pathname, JSON.stringify({ ts: new Date().toISOString(), specialist: spec.id, charge: spec.pricePerUse, payTx: receipt.receipt.transactionHash, settleTx: out.settleTx }) + "\n");
+      appendFileSync(new URL("./hires.jsonl", import.meta.url).pathname, JSON.stringify({ ts: new Date().toISOString(), specialist: spec.id, charge: spec.pricePerUse, payTx: payTxText, settleTx: out.settleTx }) + "\n");
       const work = out.assessment ?? out.article ?? out;
       return { content: [{ type: "text", text:
-        `CHARGED: ${spec.pricePerUse} to ${spec.id}\n${await balanceLine()}\nPayment receipt: https://sepolia.basescan.org/tx/${receipt.receipt.transactionHash}\nSettlement receipt: https://sepolia.basescan.org/tx/${out.settleTx}\n\nWORK PRODUCT:\n${JSON.stringify(work, null, 2)}` }] };
+        `CHARGED: ${spec.pricePerUse} to ${spec.id}\n${await balanceLine()}\nPayment: ${payTxText}\nSettlement receipt: https://sepolia.basescan.org/tx/${out.settleTx}\n\nWORK PRODUCT:\n${JSON.stringify(work, null, 2)}` }] };
     }
     return { content: [{ type: "text", text: `Unknown tool ${name}` }], isError: true };
   } catch (e) {
