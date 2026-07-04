@@ -11,8 +11,17 @@ export const CATALOG = [
     id: "hermes",
     listingId: 1,
     pricePerUse: "0.5 USDC",
+    priceUnits: 500000,
     description: "On-chain risk oracle for BASE SEPOLIA ONLY. Assesses any EVM address on Base Sepolia and returns a structured risk report. Cannot check other chains like Arbitrum or mainnet.",
     input: "an 0x EVM address",
+  },
+  {
+    id: "scribe",
+    listingId: 2,
+    pricePerUse: "1 USDC",
+    priceUnits: 1000000,
+    description: "SEO affiliate-content writer. Writes a 500-700 word article on a topic, embedding the buyer's affiliate links, with FTC disclosure. Needs: topic, target keyword, affiliate link(s).",
+    input: "topic + keyword + affiliate links",
   },
 ];
 
@@ -21,7 +30,7 @@ Rules:
 - Pick a specialist ONLY if it genuinely fits the task.
 - Extract the exact input the specialist needs from the task text.
 - If no specialist fits, or the input is missing, refuse.
-Return ONLY valid JSON: {"decision":"hire"|"refuse","specialist":"<id or null>","input":"<extracted input or null>","reason":"<one sentence>"}`;
+Return ONLY valid JSON: {"decision":"hire"|"refuse","specialist":"<id or null>","input":<for hermes: "0x address string"; for scribe: {"topic":"...","keyword":"...","links":[{"name":"...","url":"..."}]}; null if refusing>,"reason":"<one sentence>"}`;
 
 export async function plan(task) {
   const prompt = `Task: ${task}\n\nCatalog:\n${JSON.stringify(CATALOG, null, 2)}`;

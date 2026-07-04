@@ -36,7 +36,7 @@ console.log(`[echo] hiring ${spec.id} (${spec.pricePerUse}) via session key...`)
 const hash = await kernelClient.sendUserOperation({
   callData: await account.encodeCalls([{
     to: USDC, value: 0n,
-    data: encodeFunctionData({ abi: usdcAbi, functionName: "approve", args: [TAP_MARKET, 500000n] }),
+    data: encodeFunctionData({ abi: usdcAbi, functionName: "approve", args: [TAP_MARKET, BigInt(spec.priceUnits)] }),
   }, {
     to: TAP_MARKET, value: 0n,
     data: encodeFunctionData({ abi: marketAbi, functionName: "buyPack", args: [BigInt(spec.listingId), 1n, 1n] }),
@@ -45,11 +45,16 @@ const hash = await kernelClient.sendUserOperation({
 const receipt = await kernelClient.waitForUserOperationReceipt({ hash });
 console.log("[echo] paid. tx:", receipt.receipt.transactionHash);
 
-console.log("[echo] sending job (Qwen ~40s)...");
-const res = await fetch("http://127.0.0.1:8787/assess", {
+const routes = {
+  hermes: { url: "http://127.0.0.1:8787/assess", body: (input, buyer) => ({ address: input, buyer }) },
+  scribe: { url: "http://127.0.0.1:8788/write", body: (input, buyer) => ({ ...input, buyer }) },
+};
+const route = routes[spec.id];
+console.log("[echo] sending job to", spec.id, "(Qwen inference, may take minutes)...");
+const res = await fetch(route.url, {
   method: "POST", headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ address: decision.input, buyer: account.address }),
+  body: JSON.stringify(route.body(decision.input, account.address)),
 });
 const out = await res.json();
 console.log("[echo] specialist settled use", out.use, "tx:", out.settleTx);
-console.log(JSON.stringify(out.assessment, null, 2));
+console.log(JSON.stringify(out.assessment ?? out.article, null, 2));
