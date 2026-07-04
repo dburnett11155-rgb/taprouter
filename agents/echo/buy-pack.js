@@ -30,7 +30,7 @@ console.log("Echo buying 1 use of Hermes (listing 1) via session key...");
 const hash = await kernelClient.sendUserOperation({
   callData: await account.encodeCalls([{
     to: TAP_MARKET, value: 0n,
-    data: encodeFunctionData({ abi: marketAbi, functionName: "buyPack", args: [1n, 1n, 1n] }),
+    data: encodeFunctionData({ abi: marketAbi, functionName: "buyPack", args: [1n, 1n, 10n] }),
   }]),
 });
 const receipt = await kernelClient.waitForUserOperationReceipt({ hash });

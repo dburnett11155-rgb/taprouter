@@ -39,7 +39,7 @@ const hash = await kernelClient.sendUserOperation({
     data: encodeFunctionData({ abi: usdcAbi, functionName: "approve", args: [TAP_MARKET, BigInt(spec.priceUnits)] }),
   }, {
     to: TAP_MARKET, value: 0n,
-    data: encodeFunctionData({ abi: marketAbi, functionName: "buyPack", args: [BigInt(spec.listingId), 1n, 1n] }),
+    data: encodeFunctionData({ abi: marketAbi, functionName: "buyPack", args: [BigInt(spec.listingId), 1n, 10n] }),
   }]),
 });
 const receipt = await kernelClient.waitForUserOperationReceipt({ hash });

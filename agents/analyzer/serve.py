@@ -52,7 +52,11 @@ class Handler(BaseHTTPRequestHandler):
         })
         s = relayer.sign_transaction(tx)
         h = w3.eth.send_raw_transaction(s.raw_transaction)
-        w3.eth.wait_for_transaction_receipt(h)
+        rcpt = w3.eth.wait_for_transaction_receipt(h)
+        if rcpt.status != 1:
+            print(f"[settle FAILED] tx {h.hex()} reverted — work delivered but unpaid", flush=True)
+            self.send_response(500); self.end_headers()
+            self.wfile.write(b'{"error":"settlement failed - payment not collected"}'); return
         print(f"[hermes] settled use #{cumulative}: {h.hex()}", flush=True)
 
         self.send_response(200)

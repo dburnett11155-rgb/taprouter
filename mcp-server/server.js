@@ -83,7 +83,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const hash = await kernelClient.sendUserOperation({
         callData: await account.encodeCalls([
           { to: USDC, value: 0n, data: encodeFunctionData({ abi: usdcAbi, functionName: "approve", args: [TAP_MARKET, BigInt(spec.priceUnits)] }) },
-          { to: TAP_MARKET, value: 0n, data: encodeFunctionData({ abi: marketAbi, functionName: "buyPack", args: [BigInt(spec.listingId), 1n, 1n] }) },
+          { to: TAP_MARKET, value: 0n, data: encodeFunctionData({ abi: marketAbi, functionName: "buyPack", args: [BigInt(spec.listingId), 1n, 10n] }) },
         ]),
       });
       const receipt = await kernelClient.waitForUserOperationReceipt({ hash });
