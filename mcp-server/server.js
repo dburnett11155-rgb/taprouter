@@ -78,6 +78,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const route = ROUTES[spec.id];
       const esc = await publicClient.readContract({ address: TAP_MARKET, abi: marketAbi, functionName: "escrows", args: [BigInt(spec.listingId), account.address] });
       let payTxText = "used existing prepaid pack (no new charge)";
+      let chargedText = `NO NEW CHARGE (prepaid pack used) — value: ${spec.pricePerUse}`;
       if (esc[1] <= esc[2]) {
       const hash = await kernelClient.sendUserOperation({
         callData: await account.encodeCalls([
@@ -87,13 +88,14 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       });
       const receipt = await kernelClient.waitForUserOperationReceipt({ hash });
       payTxText = `https://sepolia.basescan.org/tx/${receipt.receipt.transactionHash}`;
+      chargedText = `CHARGED: ${spec.pricePerUse} to ${spec.id}`;
       }
       const res = await fetch(route.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN}` }, body: JSON.stringify(route.body(args.input, account.address)) });
       const out = await res.json();
       appendFileSync(new URL("./hires.jsonl", import.meta.url).pathname, JSON.stringify({ ts: new Date().toISOString(), specialist: spec.id, charge: spec.pricePerUse, payTx: payTxText, settleTx: out.settleTx }) + "\n");
       const work = out.assessment ?? out.article ?? out;
       return { content: [{ type: "text", text:
-        `CHARGED: ${spec.pricePerUse} to ${spec.id}\n${await balanceLine()}\nPayment: ${payTxText}\nSettlement receipt: https://sepolia.basescan.org/tx/${out.settleTx}\n\nWORK PRODUCT:\n${JSON.stringify(work, null, 2)}` }] };
+        `${chargedText}\n${await balanceLine()}\nPayment: ${payTxText}\nSettlement receipt: https://sepolia.basescan.org/tx/${out.settleTx}\n\nWORK PRODUCT:\n${JSON.stringify(work, null, 2)}` }] };
     }
     return { content: [{ type: "text", text: `Unknown tool ${name}` }], isError: true };
   } catch (e) {
