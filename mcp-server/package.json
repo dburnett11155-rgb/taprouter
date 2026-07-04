@@ -1,14 +1,14 @@
 {
-  "name": "mcp-server",
-  "version": "1.0.0",
-  "description": "",
+  "name": "tapmarket-connect",
+  "version": "0.1.0",
+  "description": "Give your AI assistant the power to hire paid specialists on TapMarket \u2014 with spending limits enforced on-chain.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -18,5 +18,17 @@
     "dotenv": "^17.4.2",
     "tslib": "^2.8.1",
     "viem": "^2.54.1"
-  }
+  },
+  "bin": {
+    "tapmarket-connect": "./cli.js"
+  },
+  "files": [
+    "cli.js",
+    "server.js",
+    "init-lib.js",
+    "catalog.js",
+    "owner-tools.js",
+    "README.md"
+  ],
+  "repository": "github:dburnett11155-rgb/taprouter"
 }

@@ -11,12 +11,13 @@ import { KERNEL_V3_1, getEntryPoint } from "@zerodev/sdk/constants";
 import { deserializePermissionAccount } from "@zerodev/permissions";
 import { config } from "dotenv";
 import { appendFileSync } from "fs";
-import { CATALOG } from "../agents/echo/brain.js";
+import { CATALOG } from "./catalog.js";
+import { ZERODEV_RPC as ZRPC } from "./init-lib.js";
 import { readFileSync, existsSync } from "fs";
 
-const WALLET_FILE = new URL("./wallet.json", import.meta.url).pathname;
+const WALLET_FILE = process.env.TAPMARKET_WALLET ?? new URL("./wallet.json", import.meta.url).pathname;
 if (!existsSync(WALLET_FILE)) {
-  console.error("No wallet found. Run: node init.js");
+  console.error("No wallet found. Run: npx tapmarket-connect setup");
   process.exit(1);
 }
 const wallet = JSON.parse(readFileSync(WALLET_FILE, "utf8"));
@@ -25,11 +26,8 @@ config({ path: new URL("../.env.local", import.meta.url).pathname, quiet: true }
 
 const TAP_MARKET = "0xBfd085f192d2246F1BFBe386DF399335dc894f2c";
 const USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
-const ZERODEV_RPC = `https://rpc.zerodev.app/api/v3/${process.env.ZERODEV_PROJECT_ID}/chain/84532`;
-const ROUTES = {
-  hermes: { url: "https://hermes.tappayment.io/assess", body: (input, buyer) => ({ address: input.address, buyer }) },
-  scribe: { url: "https://scribe.tappayment.io/write", body: (input, buyer) => ({ ...input, buyer }) },
-};
+const ZERODEV_RPC = ZRPC;
+// routes now come from catalog entries (endpoint + shape)
 
 const marketAbi = parseAbi(["function buyPack(uint256 listingId, uint256 numUses, uint64 capPerPeriod)", "function escrows(uint256,address) view returns (uint256 balance, uint256 usesPurchased, uint256 usesSettled, uint64 capPerPeriod, uint64 periodStart, uint64 usedThisPeriod, uint64 purchaseTime)"]);
 const usdcAbi = parseAbi(["function approve(address,uint256)", "function balanceOf(address) view returns (uint256)"]);
@@ -75,7 +73,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     if (name === "hire_specialist") {
       const spec = CATALOG.find(s => s.id === args.specialist);
       if (!spec) return { content: [{ type: "text", text: `Unknown specialist '${args.specialist}'. Use list_specialists.` }], isError: true };
-      const route = ROUTES[spec.id];
+      const route = { url: spec.endpoint, body: spec.shape };
       const esc = await publicClient.readContract({ address: TAP_MARKET, abi: marketAbi, functionName: "escrows", args: [BigInt(spec.listingId), account.address] });
       let payTxText = "used existing prepaid pack (no new charge)";
       let chargedText = `NO NEW CHARGE (prepaid pack used) — value: ${spec.pricePerUse}`;
@@ -90,7 +88,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       payTxText = `https://sepolia.basescan.org/tx/${receipt.receipt.transactionHash}`;
       chargedText = `CHARGED: ${spec.pricePerUse} to ${spec.id}`;
       }
-      const res = await fetch(route.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN}` }, body: JSON.stringify(route.body(args.input, account.address)) });
+      const res = await fetch(route.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN ?? "public-testnet-v01"}` }, body: JSON.stringify(route.body(args.input, account.address)) });
       const out = await res.json();
       appendFileSync(new URL("./hires.jsonl", import.meta.url).pathname, JSON.stringify({ ts: new Date().toISOString(), specialist: spec.id, charge: spec.pricePerUse, payTx: payTxText, settleTx: out.settleTx }) + "\n");
       const work = out.assessment ?? out.article ?? out;
