@@ -18,6 +18,8 @@ export const CATALOG = [
     description: "SEO affiliate-content writer. Writes a 500-700 word article on a topic, embedding the buyer's affiliate links, with FTC disclosure. Needs: topic, target keyword, affiliate link(s).",
     input: "topic + keyword + affiliate links",
     endpoint: "https://scribe.tappayment.io/write",
+    async: true,
+    resultEndpoint: "https://scribe.tappayment.io/result/",
     shape: (input, buyer) => ({ ...input, buyer }),
   },
 ];

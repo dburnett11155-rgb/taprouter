@@ -92,7 +92,18 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       chargedText = `CHARGED: ${spec.pricePerUse} to ${spec.id}`;
       }
       const res = await fetch(route.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN ?? "public-testnet-v01"}` }, body: JSON.stringify(route.body(args.input, account.address)) });
-      const out = await res.json();
+      let out = await res.json();
+      if (spec.async && out.job_id) {
+        const deadline = Date.now() + 6 * 60 * 1000;
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, 10000));
+          const pr = await fetch(spec.resultEndpoint + out.job_id, { headers: { "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN ?? "public-testnet-v01"}` } });
+          const pj = await pr.json();
+          if (pj.status === "done") { out = pj; break; }
+          if (pj.status === "failed") { return { content: [{ type: "text", text: `Job failed: ${pj.error}. If payment was taken, the pack remains usable — retry the hire.` }], isError: true }; }
+        }
+        if (out.job_id && !out.article) return { content: [{ type: "text", text: `Still working after 6 min. Job ${out.job_id} — retry hire_specialist in a few minutes; your prepaid pack will be used, not recharged.` }], isError: true };
+      }
       try { appendFileSync(join(homedir(), ".tapmarket", "hires.jsonl"), JSON.stringify({ ts: new Date().toISOString(), specialist: spec.id, charge: spec.pricePerUse, payTx: payTxText, settleTx: out.settleTx }) + "\n"); } catch {}
       const work = out.assessment ?? out.article ?? out;
       return { content: [{ type: "text", text:
