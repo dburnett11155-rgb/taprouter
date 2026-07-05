@@ -6,7 +6,7 @@ import { join } from "path";
 import { fileURLToPath } from "url";
 
 const HOME_DIR = join(homedir(), ".tapmarket");
-const WALLET = join(HOME_DIR, "wallet.json");
+const WALLET = process.env.TAPMARKET_WALLET ?? join(HOME_DIR, "wallet.json");
 const cmd = process.argv[2];
 
 if (cmd === "setup") {
@@ -59,6 +59,17 @@ if (cmd === "serve") {
   process.env.TAPMARKET_WALLET = WALLET;
   process.argv[2] = "refund";
   await import("./owner-tools.js");
+} else if (cmd === "withdraw") {
+  const [, , , amount, to] = process.argv;
+  if (!amount || !to?.startsWith("0x")) {
+    console.log("usage: npx tapmarket-connect withdraw <amount-usdc> <0x-address>"); process.exit(1);
+  }
+  const { withdraw } = await import("./init-lib.js");
+  const w = JSON.parse(readFileSync(WALLET, "utf8"));
+  const units = Math.round(parseFloat(amount) * 1e6);
+  console.log(`Withdrawing $${amount} USDC from ${w.smartAccount} to ${to}...`);
+  const tx = await withdraw(w, to, units);
+  console.log(`Done. Tx: https://sepolia.basescan.org/tx/${tx}`);
 } else if (cmd === "revoke") {
   process.env.TAPMARKET_WALLET = WALLET;
   const { revokeSessionKey } = await import("./init-lib.js");

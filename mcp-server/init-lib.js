@@ -69,3 +69,25 @@ export async function revokeSessionKey(wallet) {
   const receipt = await client.waitForUserOperationReceipt({ hash });
   return receipt.receipt.transactionHash;
 }
+
+export async function withdraw(wallet, toAddress, amountUnits) {
+  const { createKernelAccountClient } = await import("@zerodev/sdk");
+  const { encodeFunctionData } = await import("viem");
+  const publicClient = createPublicClient({ chain: baseSepolia, transport: http("https://sepolia.base.org") });
+  const entryPoint = getEntryPoint("0.7");
+  const owner = privateKeyToAccount(wallet.ownerKey);
+  const ecdsaValidator = await signerToEcdsaValidator(publicClient, { signer: owner, entryPoint, kernelVersion: KERNEL_V3_1 });
+  const account = await createKernelAccount(publicClient, {
+    plugins: { sudo: ecdsaValidator },
+    entryPoint, kernelVersion: KERNEL_V3_1, address: wallet.smartAccount,
+  });
+  const client = createKernelAccountClient({ account, chain: baseSepolia, bundlerTransport: http(ZERODEV_RPC) });
+  const usdcAbi = parseAbi(["function transfer(address,uint256) returns (bool)"]);
+  const hash = await client.sendUserOperation({
+    callData: await account.encodeCalls([
+      { to: USDC, value: 0n, data: encodeFunctionData({ abi: usdcAbi, functionName: "transfer", args: [toAddress, BigInt(amountUnits)] }) },
+    ]),
+  });
+  const receipt = await client.waitForUserOperationReceipt({ hash });
+  return receipt.receipt.transactionHash;
+}
