@@ -54,7 +54,12 @@ WHAT IT CAN DO (enforced by the blockchain, not this software):
     cfg.mcpServers.tapmarket = { command: "npx", args: ["-y", "tapmarket-connect@latest", "serve"] };
     mkdirSync(join(cfgPath, ".."), { recursive: true });
     writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
-    console.log(`Claude Desktop connected (${cfgPath}). Restart Claude Desktop to activate.`);
+    try {
+    const { launchDashboard } = await import("./dashboard.js");
+    launchDashboard(WALLET);
+    console.log("Your wallet dashboard is opening in the browser (Ctrl+C when done).");
+  } catch {}
+  console.log(`Claude Desktop connected (${cfgPath}). Restart Claude Desktop to activate.`);
   } catch (e) {
     console.log(`Couldn't auto-configure Claude Desktop (${e.message}).`);
     console.log(`Add manually to your MCP config:\n  "tapmarket": { "command": "npx", "args": ["-y", "tapmarket-connect@latest", "serve"] }`);
@@ -69,6 +74,10 @@ if (cmd === "serve") {
   process.env.TAPMARKET_WALLET = WALLET;
   process.argv[2] = "refund";
   await import("./owner-tools.js");
+} else if (cmd === "dashboard") {
+  const { launchDashboard } = await import("./dashboard.js");
+  launchDashboard(WALLET);
+  console.log("Press Ctrl+C to close.");
 } else if (cmd === "withdraw") {
   const [, , , amount, to] = process.argv;
   if (!amount || !to?.startsWith("0x")) {
