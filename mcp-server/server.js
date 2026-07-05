@@ -11,6 +11,8 @@ import { KERNEL_V3_1, getEntryPoint } from "@zerodev/sdk/constants";
 import { deserializePermissionAccount } from "@zerodev/permissions";
 import { config } from "dotenv";
 import { appendFileSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 import { CATALOG } from "./catalog.js";
 import { ZERODEV_RPC as ZRPC } from "./init-lib.js";
 import { readFileSync, existsSync } from "fs";
@@ -90,7 +92,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
       const res = await fetch(route.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN ?? "public-testnet-v01"}` }, body: JSON.stringify(route.body(args.input, account.address)) });
       const out = await res.json();
-      appendFileSync(new URL("./hires.jsonl", import.meta.url).pathname, JSON.stringify({ ts: new Date().toISOString(), specialist: spec.id, charge: spec.pricePerUse, payTx: payTxText, settleTx: out.settleTx }) + "\n");
+      try { appendFileSync(join(homedir(), ".tapmarket", "hires.jsonl"), JSON.stringify({ ts: new Date().toISOString(), specialist: spec.id, charge: spec.pricePerUse, payTx: payTxText, settleTx: out.settleTx }) + "\n"); } catch {}
       const work = out.assessment ?? out.article ?? out;
       return { content: [{ type: "text", text:
         `${chargedText}\n${await balanceLine()}\nPayment: ${payTxText}\nSettlement receipt: https://sepolia.basescan.org/tx/${out.settleTx}\n\nWORK PRODUCT:\n${JSON.stringify(work, null, 2)}` }] };

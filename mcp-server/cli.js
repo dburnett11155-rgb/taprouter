@@ -27,10 +27,20 @@ WHAT IT CAN DO (enforced by the blockchain, not this software):
   - It cannot send funds anywhere else, even if your machine is compromised.
   - You can freeze it anytime: npx tapmarket-connect revoke
 
-FUND IT (test money, free):
-  1. USDC: https://faucet.circle.com  (select Base Sepolia) -> send to ${w.smartAccount}
-  2. Gas:  any Base Sepolia ETH faucet -> ~0.002 ETH to the same address
 `);
+    process.stdout.write("Adding free test money... ");
+    try {
+      const r = await fetch("https://fund.tappayment.io/fund", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: w.smartAccount }),
+      });
+      const j = await r.json();
+      if (j.funded) console.log(`done! $${j.usdc} USDC is in your wallet.`);
+      else throw new Error(j.error);
+    } catch (e) {
+      console.log(`didn't work (${e.message}).`);
+      console.log(`Get free test money manually: https://faucet.circle.com (Base Sepolia) -> ${w.smartAccount}`);
+    }
   }
   // Claude Desktop config injection
   const cfgPath = platform() === "darwin"
@@ -41,13 +51,13 @@ FUND IT (test money, free):
   try {
     const cfg = existsSync(cfgPath) ? JSON.parse(readFileSync(cfgPath, "utf8")) : {};
     cfg.mcpServers = cfg.mcpServers ?? {};
-    cfg.mcpServers.tapmarket = { command: "npx", args: ["-y", "tapmarket-connect", "serve"] };
+    cfg.mcpServers.tapmarket = { command: "npx", args: ["-y", "tapmarket-connect@latest", "serve"] };
     mkdirSync(join(cfgPath, ".."), { recursive: true });
     writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
     console.log(`Claude Desktop connected (${cfgPath}). Restart Claude Desktop to activate.`);
   } catch (e) {
     console.log(`Couldn't auto-configure Claude Desktop (${e.message}).`);
-    console.log(`Add manually to your MCP config:\n  "tapmarket": { "command": "npx", "args": ["-y", "tapmarket-connect", "serve"] }`);
+    console.log(`Add manually to your MCP config:\n  "tapmarket": { "command": "npx", "args": ["-y", "tapmarket-connect@latest", "serve"] }`);
   }
   process.exit(0);
 }
