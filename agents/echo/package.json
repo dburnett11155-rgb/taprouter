@@ -14,7 +14,7 @@
     "@zerodev/ecdsa-validator": "^5.4.9",
     "@zerodev/permissions": "^5.6.3",
     "@zerodev/sdk": "^5.5.10",
-    "dotenv": "^17.4.2",
+    "dotenv": "^16.4.7",
     "tslib": "^2.8.1",
     "viem": "^2.54.1"
   }

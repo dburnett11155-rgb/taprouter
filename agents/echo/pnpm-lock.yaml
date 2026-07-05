@@ -18,8 +18,8 @@ importers:
         specifier: ^5.5.10
         version: 5.5.10(viem@2.54.1)
       dotenv:
-        specifier: ^17.4.2
-        version: 17.4.2
+        specifier: ^16.4.7
+        version: 16.4.7
       tslib:
         specifier: ^2.8.1
         version: 2.8.1
@@ -149,8 +149,8 @@ packages:
   crypto-js@4.2.0:
     resolution: {integrity: sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==}
 
-  dotenv@17.4.2:
-    resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
+  dotenv@16.4.7:
+    resolution: {integrity: sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==}
     engines: {node: '>=12'}
 
   ethereum-bloom-filters@1.2.0:
@@ -350,7 +350,7 @@ snapshots:
 
   crypto-js@4.2.0: {}
 
-  dotenv@17.4.2: {}
+  dotenv@16.4.7: {}
 
   ethereum-bloom-filters@1.2.0:
     dependencies:

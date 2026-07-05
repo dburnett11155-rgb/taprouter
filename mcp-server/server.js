@@ -44,9 +44,10 @@ const LIMITS_TEXT = `Spending limits (enforced by smart contract, not by this so
 - Revoke anytime: the account owner can disable the session key with one transaction, instantly freezing all spending.
 - Every payment settles on-chain with a public receipt.`;
 
+function shortAddr() { return account.address.slice(0, 6) + "…" + account.address.slice(-4); }
 async function balanceLine() {
   const bal = await publicClient.readContract({ address: USDC, abi: usdcAbi, functionName: "balanceOf", args: [account.address] });
-  return `Wallet balance: $${formatUnits(bal, 6)} USDC`;
+  return `Wallet ${shortAddr()} (this machine): $${formatUnits(bal, 6)} USDC`;
 }
 
 const server = new Server({ name: "tapmarket", version: "0.1.0" }, { capabilities: { tools: {} } });

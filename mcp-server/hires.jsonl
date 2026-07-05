@@ -1,0 +1,5 @@
+{"ts":"2026-07-04T00:51:48.162Z","specialist":"hermes","charge":"0.5 USDC","payTx":"0xde3ab12f73b9d9f5b31d8edd14292c5d8a57dc6960807b2f1ec38114cb8e4918","settleTx":"9cec445e3265e6d9246faf4b8be5e3c15faca8ec0b9b504a515da7ce6791082d"}
+{"ts":"2026-07-04T01:17:39.433Z","specialist":"hermes","charge":"0.5 USDC","payTx":"0x75a695373d2fe1f1bba120599b3617567f894516713e579774d2f95d4a097884","settleTx":"502dcf9ab19f138a046f2c7d8696f37c756f2eb3196cbc74d59399bff3d6f337"}
+{"ts":"2026-07-04T13:40:24.187Z","specialist":"hermes","charge":"0.5 USDC","payTx":"0x28417c005bae63f8ef1d2b1c3f83abbf16ecef03cdd7904a26ff8afab2029b97","settleTx":"8ace8e10eda18f8f1ea34004c195b65a3ddde726c7c266381f0ad1abb9ed1952"}
+{"ts":"2026-07-04T13:54:55.651Z","specialist":"hermes","charge":"0.5 USDC","payTx":"0x692dd65dcc5005fd54ece9ab53a46571dd6b540ca6b7b9f642360b46eaf72ed3","settleTx":"b5096a8ab648897046664c6012f6e064d225b46a076ff9deb0cf341b1f596927"}
+{"ts":"2026-07-04T14:36:02.305Z","specialist":"hermes","charge":"0.5 USDC","payTx":"used existing prepaid pack (no new charge)","settleTx":"41a9a43c96e48ead4dda1a1516e00f78ecd1a80917a3acf795030e8a44f12eea"}
