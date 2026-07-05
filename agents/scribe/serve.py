@@ -41,6 +41,10 @@ class Handler(BaseHTTPRequestHandler):
         print(f"[scribe] paid job: '{body['topic']}' for {buyer}", flush=True)
         article = write_article(body["topic"], body["keyword"], body["links"])
 
+        import pathlib
+        outdir = pathlib.Path("/home/dburnett11155/taprouter/agents/scribe/completed")
+        outdir.mkdir(exist_ok=True)
+        (outdir / f"{int(time.time())}_{buyer[:8]}.json").write_text(json.dumps({"buyer": buyer, "request": body, "article": article}))
         cumulative = esc[2] + 1
         expiry = int(time.time()) + 3600
         sig = sign_attestation(buyer, LISTING_ID, cumulative, expiry)
