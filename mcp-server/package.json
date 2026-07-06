@@ -1,6 +1,6 @@
 {
   "name": "tapmarket-connect",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Give your AI assistant the power to hire paid specialists on TapMarket — with spending limits enforced on-chain.",
   "main": "index.js",
   "scripts": {
@@ -29,7 +29,8 @@
     "catalog.js",
     "owner-tools.js",
     "README.md",
-    "dashboard.js"
+    "dashboard.js",
+    "templates"
   ],
   "repository": "github:dburnett11155-rgb/taprouter"
 }

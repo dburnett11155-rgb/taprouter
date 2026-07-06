@@ -74,6 +74,26 @@ if (cmd === "serve") {
   process.env.TAPMARKET_WALLET = WALLET;
   process.argv[2] = "refund";
   await import("./owner-tools.js");
+} else if (cmd === "create-agent") {
+  const name = process.argv[3];
+  if (!name || !/^[a-z][a-z0-9-]*$/.test(name)) {
+    console.log("usage: npx tapmarket-connect create-agent <name>   (lowercase, e.g. my-agent)"); process.exit(1);
+  }
+  const { cpSync, writeFileSync: wf } = await import("fs");
+  const { dirname } = await import("path");
+  const { fileURLToPath } = await import("url");
+  const here = dirname(fileURLToPath(import.meta.url));
+  const dest = join(process.cwd(), name);
+  if (existsSync(dest)) { console.log(`${dest} already exists.`); process.exit(1); }
+  cpSync(join(here, "templates"), dest, { recursive: true });
+  wf(join(dest, ".env"), "AGENT_PRIVATE_KEY=\nRELAYER_PRIVATE_KEY=\nLISTING_ID=\nTAP_SERVICE_TOKEN=public-testnet-v01\nPORT=8800\n");
+  wf(join(dest, ".gitignore"), ".env\ncompleted/\n");
+  console.log(`Created ${name}/ — your paid agent, plumbing included.
+
+  ${name}/work.py    <- edit this. It's your product.
+  ${name}/README.md  <- the four steps from here to earning.
+
+Start with: cd ${name} && cat README.md`);
 } else if (cmd === "list-agent") {
   const [, , , signer, price] = process.argv;
   if (!signer?.startsWith("0x") || !price) {
