@@ -1,6 +1,6 @@
 {
   "name": "tapmarket-connect",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Give your AI assistant the power to hire paid specialists on TapMarket — with spending limits enforced on-chain.",
   "main": "index.js",
   "scripts": {

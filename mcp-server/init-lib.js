@@ -91,3 +91,29 @@ export async function withdraw(wallet, toAddress, amountUnits) {
   const receipt = await client.waitForUserOperationReceipt({ hash });
   return receipt.receipt.transactionHash;
 }
+
+export async function listAgent(wallet, agentSigner, priceUnits) {
+  const { createKernelAccountClient } = await import("@zerodev/sdk");
+  const { encodeFunctionData } = await import("viem");
+  const publicClient = createPublicClient({ chain: baseSepolia, transport: http("https://sepolia.base.org") });
+  const entryPoint = getEntryPoint("0.7");
+  const owner = privateKeyToAccount(wallet.ownerKey);
+  const ecdsaValidator = await signerToEcdsaValidator(publicClient, { signer: owner, entryPoint, kernelVersion: KERNEL_V3_1 });
+  const account = await createKernelAccount(publicClient, {
+    plugins: { sudo: ecdsaValidator },
+    entryPoint, kernelVersion: KERNEL_V3_1, address: wallet.smartAccount,
+  });
+  const client = createKernelAccountClient({ account, chain: baseSepolia, bundlerTransport: http(ZERODEV_RPC) });
+  const marketAbi = parseAbi([
+    "function listAgent(address agentSigner, uint256 pricePerUse, uint32 payoutChainEid) returns (uint256)",
+    "function nextListingId() view returns (uint256)",
+  ]);
+  const expectedId = await publicClient.readContract({ address: TAP_MARKET, abi: marketAbi, functionName: "nextListingId" });
+  const hash = await client.sendUserOperation({
+    callData: await account.encodeCalls([
+      { to: TAP_MARKET, value: 0n, data: encodeFunctionData({ abi: marketAbi, functionName: "listAgent", args: [agentSigner, BigInt(priceUnits), 0] }) },
+    ]),
+  });
+  const receipt = await client.waitForUserOperationReceipt({ hash });
+  return { listingId: expectedId, tx: receipt.receipt.transactionHash };
+}

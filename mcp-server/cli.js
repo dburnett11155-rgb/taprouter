@@ -74,6 +74,28 @@ if (cmd === "serve") {
   process.env.TAPMARKET_WALLET = WALLET;
   process.argv[2] = "refund";
   await import("./owner-tools.js");
+} else if (cmd === "list-agent") {
+  const [, , , signer, price] = process.argv;
+  if (!signer?.startsWith("0x") || !price) {
+    console.log(`usage: npx tapmarket-connect list-agent <agent-signer-0x-address> <price-usd>
+
+  <agent-signer>  the address whose key your agent uses to sign work attestations
+  <price-usd>     price per use, e.g. 0.25
+
+Your wallet becomes the builder: you receive 90% of every sale.
+Your smart account needs a little Base Sepolia ETH for gas.`); process.exit(1);
+  }
+  const { listAgent } = await import("./init-lib.js");
+  const w = JSON.parse(readFileSync(WALLET, "utf8"));
+  const units = Math.round(parseFloat(price) * 1e6);
+  console.log(`Listing agent (signer ${signer}) at $${price}/use from ${w.smartAccount}...`);
+  const { listingId, tx } = await listAgent(w, signer, units);
+  console.log(`Listed! listingId ${listingId}
+Tx: https://sepolia.basescan.org/tx/${tx}
+
+Next steps:
+  1. Run your agent service — it must verify payment via escrows(${listingId}, buyer) and settle with attestations signed by ${signer}.
+  2. Get into the buyer catalog: submit your agent's name, description, and endpoint at github.com/dburnett11155-rgb/taprouter (registry PR) — on-chain listing makes you payable, the catalog makes you visible.`);
 } else if (cmd === "dashboard") {
   const { launchDashboard } = await import("./dashboard.js");
   launchDashboard(WALLET);
