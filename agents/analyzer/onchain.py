@@ -25,6 +25,25 @@ class AddressFacts:
     erc20_total_supply: int | None
 
 
+KNOWN = {
+    "0x0000000000000000000000000000000000000000": "burn address (zero address) — not a normal account",
+    "0x000000000000000000000000000000000000dead": "burn address — tokens sent here are destroyed",
+}
+
+def threat_check(address: str) -> dict:
+    """GoPlus address security (free, keyless). Returns flags dict; empty on failure."""
+    import requests
+    try:
+        r = requests.get(
+            f"https://api.gopluslabs.io/api/v1/address_security/{address}",
+            params={"chain_id": "8453"}, timeout=15)
+        r.raise_for_status()
+        res = r.json().get("result", {}) or {}
+        flags = {k: v for k, v in res.items() if v == "1"}
+        return flags
+    except Exception:
+        return {}
+
 def fetch_facts(address: str, rpc_url: str = RPC_URL) -> AddressFacts:
     w3 = Web3(Web3.HTTPProvider(rpc_url))
     if not w3.is_connected():

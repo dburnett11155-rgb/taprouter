@@ -30,14 +30,33 @@ Return ONLY valid JSON with exactly these keys:
 
 def assess(address: str) -> dict:
     facts = fetch_facts(address)
-    facts_json = json.dumps(asdict(facts), indent=2)
+
+    # Threat intelligence + known-address layer (code-enforced)
+    from onchain import threat_check, KNOWN
+    known_note = KNOWN.get(address.lower())
+    tflags = threat_check(address)
+    tflags.pop("contract_address", None)  # informational, not a threat
+    fdict = asdict(facts)
+    fdict["known_identity"] = known_note
+    fdict["threat_intel_flags"] = tflags or "none found (GoPlus, Base mainnet feed)"
+    facts_json = json.dumps(fdict, indent=2)
 
     assessment = ask_json(
         SYSTEM_PROMPT,
         f"On-chain facts for the address:\n{facts_json}\n\nProduce the risk assessment.",
     )
 
-    return {"facts": asdict(facts), "assessment": assessment}
+    SEVERE = {"phishing_activities", "blacklist_doubt", "stealing_attack", "money_laundering",
+              "cybercrime", "malicious_mining_activities", "honeypot_related_address"}
+    hits = sorted(SEVERE & set(tflags))
+    if hits:
+        assessment["risk_score"] = "high"
+        assessment["risk_factors"] = [f"THREAT INTEL: flagged for {h}" for h in hits] + assessment.get("risk_factors", [])
+        assessment["summary"] = "DO NOT INTERACT - threat intelligence flags this address. " + assessment.get("summary", "")
+    if known_note:
+        assessment.setdefault("risk_factors", []).insert(0, f"KNOWN ADDRESS: {known_note}")
+        assessment["address_type"] = "known_special_address"
+    return {"facts": fdict, "assessment": assessment}
 
 
 if __name__ == "__main__":
