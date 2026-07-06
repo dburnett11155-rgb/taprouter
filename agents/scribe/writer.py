@@ -43,11 +43,30 @@ def write_article(topic: str, keyword: str, links: list[dict]) -> dict:
     r = requests.post(OLLAMA, json={
         "model": MODEL, "system": SYSTEM, "prompt": prompt,
         "format": "json", "stream": False,
-        "options": {"temperature": 0.7, "num_predict": 1600},
+        "options": {"temperature": 0.7, "num_predict": 3000},
     }, timeout=600)
     r.raise_for_status()
-    out = json.loads(r.json()["response"])
-    out["article_markdown"] = DISCLOSURE + "\n\n" + out["article_markdown"]
+    try:
+        out = json.loads(r.json()["response"])
+    except json.JSONDecodeError:
+        print("[scribe] malformed JSON from model — retrying once", flush=True)
+        r = requests.post(OLLAMA, json={
+            "model": MODEL, "system": SYSTEM, "prompt": prompt,
+            "format": "json", "stream": False,
+            "options": {"temperature": 0.4, "num_predict": 3000},
+        }, timeout=600)
+        r.raise_for_status()
+        out = json.loads(r.json()["response"])
+    md = out["article_markdown"]
+    # Strip hallucinated placeholder links
+    import re
+    md = re.sub(r"\[([^\]]+)\]\(https?://(?:www\.)?example\.com[^)]*\)", r"\1", md)
+    # Contract enforcement: every buyer link must appear; append any the model dropped
+    missing = [l for l in links if l["url"] not in md]
+    if missing:
+        rows = "\n".join(f"- [{l['name']}]({l['url']})" for l in missing)
+        md += f"\n\n## Where to Buy\n{rows}"
+    out["article_markdown"] = DISCLOSURE + "\n\n" + md
     return out
 
 if __name__ == "__main__":
