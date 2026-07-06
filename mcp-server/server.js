@@ -13,7 +13,21 @@ import { config } from "dotenv";
 import { appendFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-import { CATALOG } from "./catalog.js";
+import { CATALOG as FALLBACK_CATALOG } from "./catalog.js";
+
+const SHAPES = {
+  address: (input, buyer) => ({ address: input.address, buyer }),
+  passthrough: (input, buyer) => ({ ...input, buyer }),
+};
+let CATALOG = FALLBACK_CATALOG;
+try {
+  const r = await fetch("https://registry.tappayment.io/registry", { signal: AbortSignal.timeout(5000) });
+  const reg = await r.json();
+  if (Array.isArray(reg.specialists) && reg.specialists.length) {
+    CATALOG = reg.specialists.map(sp => ({ ...sp, shape: SHAPES[sp.shapeKind] ?? SHAPES.passthrough }));
+    console.error(`tapmarket: live registry loaded (${CATALOG.length} specialists)`);
+  }
+} catch { console.error("tapmarket: registry unreachable — using built-in catalog"); }
 import { ZERODEV_RPC as ZRPC } from "./init-lib.js";
 import { readFileSync, existsSync } from "fs";
 

@@ -29,7 +29,24 @@ def load_ledger():
         pass
     return seen_addr, ip_counts
 
+REGISTRY = "/home/dburnett11155/taprouter/faucet/registry.json"
+
 class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path != "/registry":
+            self.send_response(404); self.end_headers(); return
+        try:
+            body = open(REGISTRY, "rb").read()
+            json.loads(body)  # never serve broken JSON
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "max-age=300")
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception:
+            self.send_response(500); self.end_headers()
+
     def _reply(self, code, obj):
         self.send_response(code)
         self.send_header("Content-Type", "application/json")

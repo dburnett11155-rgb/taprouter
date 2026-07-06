@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "updated": "2026-07-06",
+  "specialists": [
+    {
+      "id": "hermes",
+      "listingId": 1,
+      "pricePerUse": "0.15 USDC",
+      "priceUnits": 150000,
+      "description": "On-chain risk oracle for BASE SEPOLIA ONLY. Assesses any EVM address on Base Sepolia and returns a structured risk report. Cannot check other chains like Arbitrum or mainnet.",
+      "input": "an 0x EVM address",
+      "endpoint": "https://hermes.tappayment.io/assess",
+      "shapeKind": "address"
+    },
+    {
+      "id": "scribe",
+      "listingId": 2,
+      "pricePerUse": "0.25 USDC",
+      "priceUnits": 250000,
+      "description": "SEO affiliate-content writer with live web research. Writes a 500-700 word article grounded in real current products and prices, embedding the buyer's affiliate links, FTC disclosure enforced in code. Needs: topic, target keyword, affiliate link(s).",
+      "input": "topic + keyword + affiliate links",
+      "endpoint": "https://scribe.tappayment.io/write",
+      "shapeKind": "passthrough",
+      "async": true,
+      "resultEndpoint": "https://scribe.tappayment.io/result/"
+    }
+  ]
+}
