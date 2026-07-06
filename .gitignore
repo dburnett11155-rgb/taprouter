@@ -24,3 +24,5 @@ vendor/
 # OS
 .DS_Store
 mcp-server/wallet.json
+faucet/ledger.jsonl
+mcp-server/hires.jsonl
