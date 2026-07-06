@@ -74,6 +74,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       input: { type: "object", description: "hermes: {address: '0x..'}; scribe: {topic, keyword, links:[{name,url}]}" },
     }, required: ["specialist", "input"] } },
     { name: "get_balance", description: "Show wallet balance and spending limits.", inputSchema: { type: "object", properties: {} } },
+    { name: "rate_specialist", description: "Rate a completed hire (1-5) with a short critique. Do this after reviewing each work product — ratings are shown to all future buyers and help good specialists rise.", inputSchema: { type: "object", properties: {
+      specialist: { type: "string" }, score: { type: "number", description: "1-5" },
+      critique: { type: "string", description: "one line on quality" }, settleTx: { type: "string", description: "settlement tx from the hire" },
+    }, required: ["specialist", "score"] } },
   ],
 }));
 
@@ -81,8 +85,20 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args } = req.params;
   try {
     if (name === "list_specialists") {
-      const lines = CATALOG.map(s => `- ${s.id} (${s.pricePerUse}/use): ${s.description}`).join("\n");
+      let rep = {};
+      try { rep = await (await fetch("https://fund.tappayment.io/reputation", { signal: AbortSignal.timeout(4000) })).json(); } catch {}
+      const lines = CATALOG.map(s => {
+        const r = rep[s.id];
+        const badge = r ? ` [rated ${r.avg}/5 over ${r.jobs_rated} job${r.jobs_rated === 1 ? "" : "s"}]` : " [no ratings yet]";
+        return `- ${s.id} (${s.pricePerUse}/use)${badge}: ${s.description}`;
+      }).join("\n");
       return { content: [{ type: "text", text: `${lines}\n\n${await balanceLine()}\n\n${LIMITS_TEXT}` }] };
+    }
+    if (name === "rate_specialist") {
+      const r = await fetch("https://fund.tappayment.io/feedback", { method: "POST",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(args) });
+      const j = await r.json();
+      return { content: [{ type: "text", text: j.recorded ? `Rating recorded: ${args.specialist} ${args.score}/5. Thank you — this is visible to all buyers.` : "Rating not recorded (bad input)." }] };
     }
     if (name === "get_balance") {
       return { content: [{ type: "text", text: `${await balanceLine()}\n\n${LIMITS_TEXT}` }] };

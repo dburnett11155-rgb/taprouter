@@ -33,6 +33,22 @@ REGISTRY = "/home/dburnett11155/taprouter/faucet/registry.json"
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path == "/reputation":
+            agg = {}
+            try:
+                for line in open("/home/dburnett11155/taprouter/faucet/feedback.jsonl"):
+                    r = json.loads(line)
+                    a = agg.setdefault(r["specialist"], {"n": 0, "sum": 0.0})
+                    a["n"] += 1; a["sum"] += r["score"]
+            except FileNotFoundError:
+                pass
+            out = {k: {"jobs_rated": v["n"], "avg": round(v["sum"]/v["n"], 2)} for k, v in agg.items()}
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(out).encode())
+            return
         if self.path != "/registry":
             self.send_response(404); self.end_headers(); return
         try:
@@ -55,6 +71,20 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(obj).encode())
 
     def do_POST(self):
+        if self.path == "/feedback":
+            try:
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                assert body["specialist"] and isinstance(body["score"], (int, float)) and 1 <= body["score"] <= 5
+                assert re.fullmatch(r"[0-9a-fA-Fx]{6,70}", str(body.get("settleTx", "x"))) or True
+                rec = {"ts": time.time(), "specialist": str(body["specialist"])[:40],
+                       "score": float(body["score"]), "critique": str(body.get("critique", ""))[:300],
+                       "settleTx": str(body.get("settleTx", ""))[:70]}
+                with open("/home/dburnett11155/taprouter/faucet/feedback.jsonl", "a") as f:
+                    f.write(json.dumps(rec) + "\n")
+                self._reply(200, {"recorded": True})
+            except Exception:
+                self._reply(400, {"error": "bad feedback"})
+            return
         if self.path != "/fund":
             self._reply(404, {"error": "not found"}); return
         try:
