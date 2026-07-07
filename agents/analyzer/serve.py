@@ -31,7 +31,11 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get("Authorization") != f"Bearer {os.getenv('TAP_SERVICE_TOKEN')}":
             self.send_response(401); self.end_headers()
             self.wfile.write(b'{"error":"unauthorized"}'); return
-        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        raw = self.rfile.read(int(self.headers["Content-Length"]))
+        from verify import check_signature
+        auth = check_signature(self.headers, raw)
+        print(f"[auth] {auth['reason']} (signer: {auth['signer']})", flush=True)
+        body = json.loads(raw)
         target, buyer = body["address"], Web3.to_checksum_address(body["buyer"])
 
         esc = market.functions.escrows(LISTING_ID, buyer).call()

@@ -121,7 +121,17 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       payTxText = `https://sepolia.basescan.org/tx/${receipt.receipt.transactionHash}`;
       chargedText = `CHARGED: ${spec.pricePerUse} to ${spec.id}`;
       }
-      const res = await fetch(route.url, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN ?? "public-testnet-v01"}` }, body: JSON.stringify(route.body(args.input, account.address)) });
+      const bodyText = JSON.stringify(route.body(args.input, account.address));
+      const { keccak256, toBytes } = await import("viem");
+      const { privateKeyToAccount } = await import("viem/accounts");
+      const ts = Math.floor(Date.now() / 1000);
+      const digest = keccak256(toBytes(`tapmarket-v1:${ts}:${bodyText}`));
+      const reqSig = await privateKeyToAccount(wallet.ownerKey).signMessage({ message: { raw: digest } });
+      const res = await fetch(route.url, { method: "POST", headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN ?? "public-testnet-v01"}`,
+        "X-Tap-Timestamp": String(ts), "X-Tap-Signature": reqSig, "X-Tap-Signer": privateKeyToAccount(wallet.ownerKey).address,
+      }, body: bodyText });
       let out = await res.json();
       if (spec.async && out.job_id) {
         const deadline = Date.now() + 6 * 60 * 1000;
