@@ -48,6 +48,7 @@ contract TapVault is ReentrancyGuard, Ownable {
     event Reconciled(uint256 cleared, uint256 outstandingRemaining);
     event Paused(bool paused);
     event FrontCapUpdated(uint256 bps);
+    event FrontWrittenOff(uint256 amount, uint256 outstandingRemaining);
 
     error InsufficientLiquidity();
     error AlreadyProcessed();
@@ -186,6 +187,16 @@ contract TapVault is ReentrancyGuard, Ownable {
         if (_bps > MAX_FRONT_BPS_CAP) revert BadParam();
         frontCapBps = _bps;
         emit FrontCapUpdated(_bps);
+    }
+
+    /// @notice Realize a permanently-failed front as an LP loss. Moves no funds;
+    /// corrects the books so share price reflects reality. Owner can only shrink
+    /// claims (loss realization), never redirect assets.
+    function writeOffFront(uint256 amount) external onlyOwner {
+        if (amount == 0 || amount > outstandingFronted) revert BadParam();
+        outstandingFronted -= amount;
+        totalLiquidity = totalLiquidity > amount ? totalLiquidity - amount : 0;
+        emit FrontWrittenOff(amount, outstandingFronted);
     }
 
     function withdrawFlashReserve() external onlyOwner {

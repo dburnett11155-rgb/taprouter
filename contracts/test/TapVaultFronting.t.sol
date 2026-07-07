@@ -81,4 +81,33 @@ contract TapVaultFrontingTest is Test {
         vm.expectRevert(TapVault.InsufficientLiquidity.selector);
         vault.executeSwap(keccak256("big"), recipient, 600e6);
     }
+
+    // Dead front: written off, books mark down to truth. Moves no funds.
+    function testWriteOffFrontRealizesLoss() public {
+        vm.prank(messenger);
+        vault.executeSwap(keccak256("dead"), recipient, 100e6);
+        assertEq(vault.outstandingFronted(), 100e6);
+        uint256 liqBefore = vault.totalLiquidity();
+        uint256 balBefore = usdc.balanceOf(address(vault));
+
+        vault.writeOffFront(100e6);
+        assertEq(vault.outstandingFronted(), 0, "debt cleared");
+        assertEq(vault.totalLiquidity(), liqBefore - 100e6, "loss realized");
+        assertEq(usdc.balanceOf(address(vault)), balBefore, "no funds moved");
+    }
+
+    function testWriteOffFrontOnlyOwner() public {
+        vm.prank(messenger);
+        vault.executeSwap(keccak256("dead2"), recipient, 50e6);
+        vm.prank(lp);
+        vm.expectRevert();
+        vault.writeOffFront(50e6);
+    }
+
+    function testWriteOffFrontCannotExceedOutstanding() public {
+        vm.prank(messenger);
+        vault.executeSwap(keccak256("dead3"), recipient, 50e6);
+        vm.expectRevert(TapVault.BadParam.selector);
+        vault.writeOffFront(51e6);
+    }
 }
