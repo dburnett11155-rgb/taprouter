@@ -9,6 +9,15 @@ const HOME_DIR = join(homedir(), ".tapmarket");
 const WALLET = process.env.TAPMARKET_WALLET ?? join(HOME_DIR, "wallet.json");
 const cmd = process.argv[2];
 
+async function loadOwnerWallet() {
+  const { loadWallet, unlockOwnerKey, isOwnerKeyEncrypted } = await import("./wallet-store.js");
+  const { wallet } = loadWallet();
+  if (!wallet) { console.log("No wallet found. Run: npx tapmarket-connect setup"); process.exit(1); }
+  if (isOwnerKeyEncrypted(wallet)) return { ...wallet, ownerKey: await unlockOwnerKey(wallet) };
+  console.log("Note: your owner key is stored unencrypted. Protect it: npx tapmarket-connect encrypt");
+  return wallet;
+}
+
 if (cmd === "setup") {
   const { createWallet } = await import("./init-lib.js");
   mkdirSync(HOME_DIR, { recursive: true });
@@ -16,6 +25,18 @@ if (cmd === "setup") {
     console.log(`Wallet already exists at ${WALLET} — skipping creation.`);
   } else {
     const w = await createWallet();
+    const { generatePrivateKey } = await import("viem/accounts");
+    w.authKey = generatePrivateKey();
+    const { promptPassphrase, encryptOwnerKey } = await import("./wallet-store.js");
+    console.log(`\nChoose a passphrase to encrypt your wallet's owner key (used to withdraw or freeze funds).
+THERE IS NO RECOVERY if you lose it — store it in your password manager.`);
+    const p1 = await promptPassphrase("Passphrase (or press Enter to skip encryption — not recommended): ");
+    if (p1) {
+      const p2 = await promptPassphrase("Confirm passphrase: ");
+      if (p1 !== p2) { console.log("Passphrases don't match — wallet not created. Run setup again."); process.exit(1); }
+      w.ownerKeyEnc = encryptOwnerKey(w.ownerKey, p1);
+      delete w.ownerKey;
+    }
     writeFileSync(WALLET, JSON.stringify(w, null, 2), { mode: 0o600 });
     console.log(`
 Your assistant's wallet is ready.
@@ -106,7 +127,7 @@ Your wallet becomes the builder: you receive 90% of every sale.
 Your smart account needs a little Base Sepolia ETH for gas.`); process.exit(1);
   }
   const { listAgent } = await import("./init-lib.js");
-  const w = JSON.parse(readFileSync(WALLET, "utf8"));
+  const w = await loadOwnerWallet();
   const units = Math.round(parseFloat(price) * 1e6);
   console.log(`Listing agent (signer ${signer}) at $${price}/use from ${w.smartAccount}...`);
   const { listingId, tx } = await listAgent(w, signer, units);
@@ -116,6 +137,25 @@ Tx: https://sepolia.basescan.org/tx/${tx}
 Next steps:
   1. Run your agent service — it must verify payment via escrows(${listingId}, buyer) and settle with attestations signed by ${signer}.
   2. Get into the buyer catalog: submit your agent's name, description, and endpoint at github.com/dburnett11155-rgb/taprouter (registry PR) — on-chain listing makes you payable, the catalog makes you visible.`);
+} else if (cmd === "encrypt") {
+  const { loadWallet, saveWallet, promptPassphrase, encryptOwnerKey, isOwnerKeyEncrypted } = await import("./wallet-store.js");
+  const { wallet, path } = loadWallet();
+  if (!wallet) { console.log("No wallet found. Run: npx tapmarket-connect setup"); process.exit(1); }
+  if (isOwnerKeyEncrypted(wallet)) { console.log("Owner key is already encrypted."); process.exit(0); }
+  if (!wallet.authKey) {
+    const { generatePrivateKey } = await import("viem/accounts");
+    wallet.authKey = generatePrivateKey();
+    console.log("Added a dedicated auth signing key — the connector no longer needs your owner key to run.");
+  }
+  console.log("Choose a passphrase. THERE IS NO RECOVERY if you lose it — store it in your password manager.");
+  const p1 = await promptPassphrase("Passphrase: ");
+  if (!p1) { console.log("Empty passphrase — nothing changed."); process.exit(1); }
+  const p2 = await promptPassphrase("Confirm passphrase: ");
+  if (p1 !== p2) { console.log("Passphrases don't match — nothing changed."); process.exit(1); }
+  wallet.ownerKeyEnc = encryptOwnerKey(wallet.ownerKey, p1);
+  delete wallet.ownerKey;
+  saveWallet(path, wallet);
+  console.log(`Owner key encrypted at rest (${path}). You'll be asked for the passphrase on withdraw/revoke/refund/list-agent.`);
 } else if (cmd === "dashboard") {
   const { launchDashboard } = await import("./dashboard.js");
   launchDashboard(WALLET);
@@ -126,7 +166,7 @@ Next steps:
     console.log("usage: npx tapmarket-connect withdraw <amount-usdc> <0x-address>"); process.exit(1);
   }
   const { withdraw } = await import("./init-lib.js");
-  const w = JSON.parse(readFileSync(WALLET, "utf8"));
+  const w = await loadOwnerWallet();
   const units = Math.round(parseFloat(amount) * 1e6);
   console.log(`Withdrawing $${amount} USDC from ${w.smartAccount} to ${to}...`);
   const tx = await withdraw(w, to, units);
@@ -134,7 +174,7 @@ Next steps:
 } else if (cmd === "revoke") {
   process.env.TAPMARKET_WALLET = WALLET;
   const { revokeSessionKey } = await import("./init-lib.js");
-  const w = JSON.parse(readFileSync(WALLET, "utf8"));
+  const w = await loadOwnerWallet();
   console.log("Freezing your assistant's spending key (this is reversible only by creating a new one)...");
   const tx = await revokeSessionKey(w);
   console.log(`Done. Spending frozen. Tx: https://sepolia.basescan.org/tx/${tx}`);
@@ -144,5 +184,6 @@ Next steps:
   npx tapmarket-connect setup    create your assistant's wallet + connect Claude Desktop
   npx tapmarket-connect serve    run the connector (Claude launches this automatically)
   npx tapmarket-connect refund   reclaim unused prepaid tasks
+  npx tapmarket-connect encrypt  protect your owner key with a passphrase
 `);
 }

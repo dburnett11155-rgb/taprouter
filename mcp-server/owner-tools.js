@@ -8,10 +8,12 @@ import { signerToEcdsaValidator } from "@zerodev/ecdsa-validator";
 import { createKernelAccount, createKernelAccountClient } from "@zerodev/sdk";
 import { KERNEL_V3_1, getEntryPoint } from "@zerodev/sdk/constants";
 import { config } from "dotenv";
-import { readFileSync } from "fs";
+import { loadWallet, unlockOwnerKey, isOwnerKeyEncrypted } from "./wallet-store.js";
 
 config({ path: new URL("../.env.local", import.meta.url).pathname, quiet: true });
-const wallet = JSON.parse(readFileSync(new URL("./wallet.json", import.meta.url).pathname, "utf8"));
+const { wallet } = loadWallet();
+if (!wallet) { console.error("No wallet found. Run: npx tapmarket-connect setup"); process.exit(1); }
+if (isOwnerKeyEncrypted(wallet)) wallet.ownerKey = await unlockOwnerKey(wallet);
 
 const TAP_MARKET = "0xBfd085f192d2246F1BFBe386DF399335dc894f2c";
 const USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
