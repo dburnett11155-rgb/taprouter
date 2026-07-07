@@ -29,14 +29,21 @@ try {
   }
 } catch { console.error("tapmarket: registry unreachable — using built-in catalog"); }
 import { ZERODEV_RPC as ZRPC } from "./init-lib.js";
-import { readFileSync, existsSync } from "fs";
+import { loadWallet } from "./wallet-store.js";
 
-const WALLET_FILE = process.env.TAPMARKET_WALLET ?? new URL("./wallet.json", import.meta.url).pathname;
-if (!existsSync(WALLET_FILE)) {
+const { wallet, path: WALLET_FILE } = loadWallet();
+if (!wallet) {
   console.error("No wallet found. Run: npx tapmarket-connect setup");
   process.exit(1);
 }
-const wallet = JSON.parse(readFileSync(WALLET_FILE, "utf8"));
+if (wallet.authKey) {
+  console.error("tapmarket: auth signing with dedicated authKey");
+} else if (wallet.ownerKey) {
+  console.error("tapmarket: auth LEGACY — signing with plaintext ownerKey (run any owner command to migrate)");
+} else {
+  console.error("tapmarket: WARNING — no authKey and ownerKey is encrypted; hires will be sent UNSIGNED (observe mode tolerates this; run an owner command to add authKey)");
+}
+const AUTH_SIGNING_KEY = wallet.authKey ?? wallet.ownerKey ?? null;
 
 config({ path: new URL("../.env.local", import.meta.url).pathname, quiet: true });
 
@@ -124,13 +131,17 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       const bodyText = JSON.stringify(route.body(args.input, account.address));
       const { keccak256, toBytes } = await import("viem");
       const { privateKeyToAccount } = await import("viem/accounts");
-      const ts = Math.floor(Date.now() / 1000);
-      const digest = keccak256(toBytes(`tapmarket-v1:${ts}:${bodyText}`));
-      const reqSig = await privateKeyToAccount(wallet.ownerKey).signMessage({ message: { raw: digest } });
+      let sigHeaders = {};
+      if (AUTH_SIGNING_KEY) {
+        const ts = Math.floor(Date.now() / 1000);
+        const digest = keccak256(toBytes(`tapmarket-v1:${ts}:${bodyText}`));
+        const reqSig = await privateKeyToAccount(AUTH_SIGNING_KEY).signMessage({ message: { raw: digest } });
+        sigHeaders = { "X-Tap-Timestamp": String(ts), "X-Tap-Signature": reqSig, "X-Tap-Signer": privateKeyToAccount(AUTH_SIGNING_KEY).address };
+      }
       const res = await fetch(route.url, { method: "POST", headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${process.env.TAP_SERVICE_TOKEN ?? "public-testnet-v01"}`,
-        "X-Tap-Timestamp": String(ts), "X-Tap-Signature": reqSig, "X-Tap-Signer": privateKeyToAccount(wallet.ownerKey).address,
+        ...sigHeaders,
       }, body: bodyText });
       let out = await res.json();
       if (spec.async && out.job_id) {
