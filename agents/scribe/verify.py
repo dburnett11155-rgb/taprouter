@@ -26,3 +26,12 @@ def check_signature(headers, body_bytes: bytes) -> dict:
         return {"ok": True, "signer": recovered, "reason": "valid"}
     except Exception as e:
         return {"ok": False, "signer": None, "reason": f"error: {e}"}
+
+import os
+ENFORCE = os.environ.get("TAP_AUTH_ENFORCE", "") == "1"
+
+def gate(headers, body_bytes):
+    """Returns (allow, verdict). Observe mode (default): always allow, log verdict.
+    Enforce mode (TAP_AUTH_ENFORCE=1): allow only valid signatures."""
+    v = check_signature(headers, body_bytes)
+    return (v["ok"] if ENFORCE else True), v

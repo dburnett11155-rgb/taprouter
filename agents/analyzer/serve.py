@@ -32,9 +32,13 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(401); self.end_headers()
             self.wfile.write(b'{"error":"unauthorized"}'); return
         raw = self.rfile.read(int(self.headers["Content-Length"]))
-        from verify import check_signature
-        auth = check_signature(self.headers, raw)
-        print(f"[auth] {auth['reason']} (signer: {auth['signer']})", flush=True)
+        from verify import gate, ENFORCE
+        allow, auth = gate(self.headers, raw)
+        print(f"[auth] {auth['reason']} (signer: {auth['signer']}) [{'ENFORCE' if ENFORCE else 'observe'}]", flush=True)
+        if not allow:
+            self.send_response(401); self.send_header("Content-Type", "application/json"); self.end_headers()
+            self.wfile.write(b'{"error": "invalid or missing request signature"}')
+            return
         body = json.loads(raw)
         target, buyer = body["address"], Web3.to_checksum_address(body["buyer"])
 

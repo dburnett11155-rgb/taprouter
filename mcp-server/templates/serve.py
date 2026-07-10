@@ -78,7 +78,15 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/job":
             self.send_response(404); self.end_headers(); return
         if not self._auth(): return
-        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        raw = self.rfile.read(int(self.headers["Content-Length"]))
+        from verify import gate, ENFORCE
+        allow, auth = gate(self.headers, raw)
+        print(f"[auth] {auth['reason']} (signer: {auth['signer']}) [{'ENFORCE' if ENFORCE else 'observe'}]", flush=True)
+        if not allow:
+            self.send_response(401); self.send_header("Content-Type", "application/json"); self.end_headers()
+            self.wfile.write(b'{"error": "invalid or missing request signature"}')
+            return
+        body = json.loads(raw)
         buyer = Web3.to_checksum_address(body["buyer"])
         esc = market.functions.escrows(LISTING_ID, buyer).call()
         if esc[1] <= esc[2]:
