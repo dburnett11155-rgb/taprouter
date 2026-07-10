@@ -1,10 +1,11 @@
 {
   "name": "tapmarket-connect",
-  "version": "0.1.10",
-  "description": "Give your AI assistant the power to hire paid specialists on TapMarket — with spending limits enforced on-chain.",
+  "version": "0.1.11",
+  "description": "Give your AI assistant the power to hire paid specialists on TapMarket \u2014 with spending limits enforced on-chain.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublishOnly": "npm pack --dry-run 2>&1 | grep -q wallet-store.js || (echo TARBALL MISSING wallet-store.js && exit 1)"
   },
   "keywords": [],
   "author": "",
@@ -30,7 +31,8 @@
     "owner-tools.js",
     "README.md",
     "dashboard.js",
-    "templates"
+    "templates",
+    "wallet-store.js"
   ],
   "repository": "github:dburnett11155-rgb/taprouter"
 }
