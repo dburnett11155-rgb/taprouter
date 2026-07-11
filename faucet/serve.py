@@ -14,7 +14,7 @@ LEDGER = "/home/dburnett11155/taprouter/faucet/ledger.jsonl"
 
 w3 = Web3(Web3.HTTPProvider(RPC))
 funder = w3.eth.account.from_key(os.getenv("PRIVATE_KEY"))
-usdc = w3.eth.contract(address=USDC, abi=[{"name":"transfer","type":"function","stateMutability":"nonpayable","inputs":[{"name":"to","type":"address"},{"name":"value","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]}])
+usdc = w3.eth.contract(address=USDC, abi=[{"name":"transfer","type":"function","stateMutability":"nonpayable","inputs":[{"name":"to","type":"address"},{"name":"value","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]},{"name":"balanceOf","type":"function","stateMutability":"view","inputs":[{"name":"account","type":"address"}],"outputs":[{"name":"","type":"uint256"}]}])
 
 def load_ledger():
     seen_addr, ip_counts = set(), {}
@@ -100,6 +100,18 @@ class Handler(BaseHTTPRequestHandler):
             self._reply(429, {"error": "address already funded"}); return
         if ips.get(ip, 0) >= 5:
             self._reply(429, {"error": "daily limit reached"}); return
+        # Inventory pre-check: never attempt (or half-complete) a drip we can't afford.
+        try:
+            eth_bal = w3.eth.get_balance(funder.address)
+            usdc_bal = usdc.functions.balanceOf(funder.address).call()
+            eth_need = DRIP_ETH + w3.to_wei(0.0001, "ether")  # drip + gas margin for both txs
+            if eth_bal < eth_need or usdc_bal < DRIP_USDC:
+                drips_left = min(int(eth_bal / eth_need) if eth_need else 0, int(usdc_bal / DRIP_USDC) if DRIP_USDC else 0)
+                print(f"[faucet] EMPTY — refused drip to {addr}: eth={w3.from_wei(eth_bal,'ether')} usdc={usdc_bal/1e6} (need eth>={w3.from_wei(eth_need,'ether')}, usdc>={DRIP_USDC/1e6})", flush=True)
+                self._reply(503, {"funded": False, "error": "faucet temporarily empty — try again later"}); return
+        except Exception as e:
+            print(f"[faucet] inventory check failed: {e}", flush=True)
+            self._reply(503, {"funded": False, "error": "faucet temporarily unavailable"}); return
         try:
             nonce = w3.eth.get_transaction_count(funder.address, "pending")
             tx1 = usdc.functions.transfer(addr, DRIP_USDC).build_transaction({
@@ -112,7 +124,10 @@ class Handler(BaseHTTPRequestHandler):
             w3.eth.wait_for_transaction_receipt(h2)
             with open(LEDGER, "a") as f:
                 f.write(json.dumps({"ts": time.time(), "address": addr, "ip": ip, "usdc_tx": h1.hex(), "eth_tx": h2.hex()}) + "\n")
-            print(f"[faucet] dripped to {addr} ({ip})", flush=True)
+            eth_after = w3.eth.get_balance(funder.address)
+            usdc_after = usdc.functions.balanceOf(funder.address).call()
+            drips_left = min(int(eth_after / (DRIP_ETH + w3.to_wei(0.0001, "ether"))), int(usdc_after / DRIP_USDC))
+            print(f"[faucet] dripped to {addr} ({ip}) — inventory: ~{drips_left} drips left", flush=True)
             self._reply(200, {"funded": True, "usdc": "1.00", "eth": "0.001", "usdc_tx": h1.hex(), "eth_tx": h2.hex()})
         except Exception as e:
             print(f"[faucet] FAIL {addr}: {e}", flush=True)
