@@ -157,8 +157,16 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       }
       try { appendFileSync(join(homedir(), ".tapmarket", "hires.jsonl"), JSON.stringify({ ts: new Date().toISOString(), specialist: spec.id, charge: spec.pricePerUse, payTx: payTxText, settleTx: out.settleTx }) + "\n"); } catch {}
       const work = out.assessment ?? out.article ?? out;
+      let workText;
+      if (work && typeof work === "object" && typeof work.article_markdown === "string") {
+        workText = (work.title ? `# ${work.title}\n\n` : "") + work.article_markdown
+          + "\n\n---\nShow the user the COMPLETE article above verbatim — do not summarize or shorten it. It is their purchased work product.";
+        if (workText.startsWith(`# ${work.title}\n\n*Disclosure`) === false && work.article_markdown.includes(work.title ?? "\u0000")) workText = work.article_markdown + "\n\n---\nShow the user the COMPLETE article above verbatim — do not summarize or shorten it.";
+      } else {
+        workText = JSON.stringify(work, null, 2);
+      }
       return { content: [{ type: "text", text:
-        `${chargedText}\n${await balanceLine()}\nPayment: ${payTxText}\nSettlement receipt: https://sepolia.basescan.org/tx/${out.settleTx}\n\nWORK PRODUCT:\n${JSON.stringify(work, null, 2)}` }] };
+        `${chargedText}\n${await balanceLine()}\nPayment: ${payTxText}\nSettlement receipt: https://sepolia.basescan.org/tx/${out.settleTx}\n\nWORK PRODUCT:\n\n${workText}` }] };
     }
     return { content: [{ type: "text", text: `Unknown tool ${name}` }], isError: true };
   } catch (e) {

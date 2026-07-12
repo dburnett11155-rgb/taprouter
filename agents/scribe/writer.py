@@ -1,8 +1,19 @@
 """writer.py — Scribe's brain. Local Qwen writes an SEO affiliate article.
 FTC disclosure is injected by CODE, never left to the model."""
-import json, os, requests
+import json, os, os, requests
 
 OLLAMA = "http://127.0.0.1:11434/api/generate"
+GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+
+def _generate_gemini(system: str, prompt: str) -> dict:
+    r = requests.post(f"{GEMINI_URL}?key={GEMINI_KEY}", json={
+        "system_instruction": {"parts": [{"text": system}]},
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.7, "response_mime_type": "application/json", "maxOutputTokens": 4000},
+    }, timeout=30)
+    r.raise_for_status()
+    return json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
 MODEL = "qwen2.5:3b"
 DISCLOSURE = ("*Disclosure: This article contains affiliate links. "
               "If you purchase through them, the author may earn a commission at no extra cost to you.*")
@@ -40,15 +51,23 @@ def write_article(topic: str, keyword: str, links: list[dict]) -> dict:
     facts = research(f"{topic} {keyword} 2026")
     prompt = json.dumps({"topic": topic, "target_keyword": keyword, "affiliate_links": links,
                          "verified_facts_from_live_web_search": facts or "none available"})
-    r = requests.post(OLLAMA, json={
+    out = None
+    if GEMINI_KEY:
+        try:
+            out = _generate_gemini(SYSTEM, prompt)
+            print("[scribe] generated via gemini", flush=True)
+        except Exception as e:
+            print(f"[scribe] gemini failed ({e}) — falling back to local model", flush=True)
+    if out is None:
+     r = requests.post(OLLAMA, json={
         "model": MODEL, "system": SYSTEM, "prompt": prompt,
         "format": "json", "stream": False,
         "options": {"temperature": 0.7, "num_predict": 3000},
-    }, timeout=600)
-    r.raise_for_status()
-    try:
+     }, timeout=600)
+     r.raise_for_status()
+     try:
         out = json.loads(r.json()["response"])
-    except json.JSONDecodeError:
+     except json.JSONDecodeError:
         print("[scribe] malformed JSON from model — retrying once", flush=True)
         r = requests.post(OLLAMA, json={
             "model": MODEL, "system": SYSTEM, "prompt": prompt,

@@ -4,10 +4,10 @@ import os, json, time, uuid, threading, pathlib
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
 from web3 import Web3
+load_dotenv("/home/dburnett11155/taprouter/.env.local")
 from writer import write_article
 from attest import sign_attestation
 
-load_dotenv("/home/dburnett11155/taprouter/.env.local")
 RPC = "https://sepolia.base.org"
 MARKET = Web3.to_checksum_address("0xBfd085f192d2246F1BFBe386DF399335dc894f2c")
 LISTING_ID = int(os.getenv("SCRIBE_LISTING_ID"))
