@@ -158,7 +158,14 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       try { appendFileSync(join(homedir(), ".tapmarket", "hires.jsonl"), JSON.stringify({ ts: new Date().toISOString(), specialist: spec.id, charge: spec.pricePerUse, payTx: payTxText, settleTx: out.settleTx }) + "\n"); } catch {}
       const work = out.assessment ?? out.article ?? out;
       let workText;
-      if (work && typeof work === "object" && typeof work.article_markdown === "string") {
+      if (work && typeof work === "object" && typeof work.risk_score === "string") {
+        const a = work;
+        const icon = { low: "LOW RISK", medium: "MEDIUM RISK", high: "HIGH RISK", unknown: "UNKNOWN" }[a.risk_score] ?? a.risk_score.toUpperCase();
+        const factors = (a.risk_factors ?? []).map(f => `- ${f}`).join("\n") || "- none identified";
+        workText = `## Risk Report: ${icon}\n\n${a.summary ?? ""}\n\n**Findings:**\n${factors}`
+          + (a.address_type ? `\n\n**Address type:** ${a.address_type}` : "")
+          + "\n\n---\nPresent this risk report to the user clearly. Keep the risk level prominent.";
+      } else if (work && typeof work === "object" && typeof work.article_markdown === "string") {
         workText = (work.title ? `# ${work.title}\n\n` : "") + work.article_markdown
           + "\n\n---\nShow the user the COMPLETE article above verbatim — do not summarize or shorten it. It is their purchased work product.";
         if (workText.startsWith(`# ${work.title}\n\n*Disclosure`) === false && work.article_markdown.includes(work.title ?? "\u0000")) workText = work.article_markdown + "\n\n---\nShow the user the COMPLETE article above verbatim — do not summarize or shorten it.";
