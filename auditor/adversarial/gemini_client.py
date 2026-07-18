@@ -59,6 +59,12 @@ def call_json(system: str, user: str, *, model: str = None, run_dir=None,
             r.raise_for_status()
             raw = r.json()["candidates"][0]["content"]["parts"][0]["text"]
             parsed = _loads_lenient(raw)
+            # A refusal is NOT a verdict — never let it pass as "no issue found".
+            if isinstance(parsed, dict) and "error" in parsed and len(parsed) == 1:
+                if any(w in str(parsed["error"]).lower() for w in ("cannot fulfill", "cannot analyze", "safety guidelines", "unable to")):
+                    last_err = f"model refused: {parsed['error'][:120]}"
+                    if run_dir: _log(run_dir, label, model, system, user, raw, ok=False, attempt=attempt)
+                    time.sleep(1 + attempt); continue
             if run_dir:
                 _log(run_dir, label, model, system, user, raw, ok=True)
             return parsed
