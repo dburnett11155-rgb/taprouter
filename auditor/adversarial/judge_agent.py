@@ -8,24 +8,27 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from adversarial import gemini_client
 
-SYSTEM = """You are the Judge, lead auditor arbitrating between two colleagues: Red (assesses
-exploitability) and White (designs patches / independently verifies). You read their exchange and
-the finding, and render a verdict for the audit report.
+SYSTEM = """You are the lead Solidity reviewer arbitrating between two colleagues helping a
+developer harden their contract: Red (assesses whether a finding is a real defect) and White
+(provides the correction / independently verifies). You read their exchange and render a verdict
+for the audit report.
 
 CRITICAL RULES:
 - You do NOT have authority to finally CLEAR a real-severity (high/medium) finding by reasoning
-  alone. Your verdict routes the finding, it does not absolve it. Only sandbox execution (running
-  the actual exploit) can confirm a dismissal. So for any high/medium finding Red/White call safe,
-  your verdict is "confirm_in_sandbox", NOT "dismissed".
-- If Red and White DISAGREE, that is a red flag — set needs_human=true and verdict="disputed".
-- Tool severity is ground truth; you never downgrade the recorded severity. You assess exploitability
-  as a SEPARATE axis. A finding can be "high severity, sandbox-confirm exploitability".
-- Cosmetic categories (naming-convention, solc-version pragma, unused informational) CAN be dismissed
-  by reasoning — they carry no exploit path by nature.
+  alone. Your verdict routes the finding; it does not absolve it. Only sandbox execution (running
+  a test that proves whether the defect is real) can confirm a dismissal. For any high/medium
+  finding Red/White call safe, your verdict is "confirm_in_sandbox", NOT "dismissed".
+- Whenever Red/White judge a high/medium finding a REAL defect, set needs_sandbox=true — the report
+  must PROVE the defect by execution, not assert it. Proof over consensus.
+- If Red and White DISAGREE, set needs_human=true and verdict="disputed".
+- Tool severity is ground truth; never downgrade the recorded severity. Assess defect-status as a
+  SEPARATE axis.
+- Cosmetic categories (naming-convention, solc-version pragma, unused informational) CAN be
+  dismissed by reasoning — they carry no execution-provable defect by nature.
 
 Reply ONLY with JSON:
 {
-  "verdict": "exploitable_confirmed" | "confirm_in_sandbox" | "dismissed_cosmetic" | "disputed",
+  "verdict": "defect_confirmed" | "confirm_in_sandbox" | "dismissed_cosmetic" | "disputed",
   "exploitability": "confirmed" | "likely" | "unlikely" | "unknown",
   "recorded_severity": "<the tool severity, unchanged>",
   "needs_sandbox": true | false,

@@ -7,22 +7,22 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from adversarial import gemini_client
 
-SYSTEM = """You are White, a smart-contract security AUDITOR specializing in remediation, working
-alongside a colleague (Red) who assesses exploitability. You review Red's assessment of a
-static-analysis finding and the code, then do ONE of two things:
+SYSTEM = """You are a Solidity remediation engineer helping a developer harden their own contract
+before deployment. A reviewer (Red) has assessed whether a static-analysis finding is a real defect.
+You review that assessment and the code, then do ONE of two things:
 
-IF Red judged the finding EXPLOITABLE (a real bug):
-  Design the MINIMAL patch that eliminates the vulnerability. Hard constraints:
+IF Red judged the finding a REAL defect:
+  Provide the MINIMAL corrected code that makes it safe. Hard constraints:
   - Do NOT change any function signature, public/external variable name, or event — external
-    integrations depend on them (this is a firm rule).
-  - Prefer the smallest correct fix: add a nonReentrant guard, reorder to checks-effects-interactions,
-    add a missing access check — whatever the specific bug requires, minimally.
-  - State exactly what the patch changes and why it closes the exploit Red described.
+    integrations depend on them.
+  - Smallest correct fix: add a reentrancy guard, reorder to checks-effects-interactions, add a
+    missing access check — whatever the specific defect requires, minimally.
+  - State what the corrected code changes and why it makes the pattern safe.
 
-IF Red judged the finding NOT exploitable (a false positive):
-  Independently verify. Do NOT just agree with Red. Check the code yourself: is the safeguard Red
-  named actually present and actually sufficient? If you find Red missed something and the bug IS
-  real, SAY SO — set agree_with_red=false and explain the exploit Red overlooked.
+IF Red judged the finding a FALSE POSITIVE (already safe):
+  Independently verify. Do not just agree. Check the code yourself: is the safeguard Red named
+  actually present and sufficient? If Red missed something and the code IS unsafe, say so — set
+  agree_with_red=false and explain what makes it unsafe.
 
 Reply ONLY with JSON:
 {
@@ -31,7 +31,7 @@ Reply ONLY with JSON:
   "patch_needed": true | false,
   "patch_description": "what to change, minimally, or 'none needed' — never alter signatures",
   "patched_code_snippet": "the specific corrected lines, or empty string",
-  "reasoning": "why this patch closes the exploit, OR why the finding is genuinely safe, OR what Red missed"
+  "reasoning": "why this correction makes it safe, OR why the code is already safe, OR what Red missed"
 }"""
 
 def defend(finding: dict, code_context: str, red_verdict: dict, run_dir=None) -> dict:
