@@ -10,6 +10,28 @@ import config
 class GeminiError(Exception):
     pass
 
+def _loads_lenient(raw: str):
+    """Parse JSON that may have trailing extra data or markdown fences."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```", 2)[1]
+        if raw.startswith("json"): raw = raw[4:]
+        raw = raw.strip()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # extract first complete JSON object via brace-matching
+        depth, start = 0, None
+        for i, c in enumerate(raw):
+            if c == "{":
+                if start is None: start = i
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0 and start is not None:
+                    return json.loads(raw[start:i+1])
+        raise
+
 def call_json(system: str, user: str, *, model: str = None, run_dir=None,
               label: str = "call", temperature: float = 0.2, max_retries: int = 2) -> dict:
     """Call Gemini expecting strict JSON back. Returns parsed dict.
@@ -36,7 +58,7 @@ def call_json(system: str, user: str, *, model: str = None, run_dir=None,
                 break
             r.raise_for_status()
             raw = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-            parsed = json.loads(raw)
+            parsed = _loads_lenient(raw)
             if run_dir:
                 _log(run_dir, label, model, system, user, raw, ok=True)
             return parsed
