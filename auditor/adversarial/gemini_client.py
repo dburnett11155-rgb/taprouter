@@ -50,8 +50,11 @@ def call_json(system: str, user: str, *, model: str = None, run_dir=None,
     for attempt in range(max_retries + 1):
         try:
             r = requests.post(url, json=payload, timeout=90)
-            if r.status_code == 429:  # true rate limit — back off and retry
-                time.sleep(2 ** attempt + 1); last_err = "429 rate limit"; continue
+            if r.status_code == 429:  # true rate limit — quota windows are per-MINUTE; back off for real
+                retry_after = r.headers.get("Retry-After")
+                wait = int(retry_after) if (retry_after and retry_after.isdigit()) else 25 * (attempt + 1)
+                last_err = f"429 rate limit (waited {wait}s)"
+                time.sleep(wait); continue
             if not r.ok:  # 403 etc — surface the real reason, do not blindly retry
                 last_err = f"{r.status_code}: {r.text[:300]}"
                 if run_dir: _log(run_dir, label, model, system, user, r.text[:500], ok=False, attempt=attempt)

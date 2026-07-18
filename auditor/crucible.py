@@ -52,11 +52,18 @@ def audit(target=None, deep=False, do_sandbox=True):
     verdicts = []
     for f in blocking:
         code = _code_context(f, froot)
-        red = prosecute(f, code, run_dir=run_dir)
-        if red.get("error"):
-            verdicts.append({**_slim(f), "disposition": "error", "detail": "reasoning refused/failed"}); continue
-        white = defend(f, code, red, run_dir=run_dir)
-        judge = arbitrate(f, red, white, run_dir=run_dir)
+        try:
+            red = prosecute(f, code, run_dir=run_dir)
+            if red.get("error"):
+                verdicts.append({**_slim(f), "disposition": "error", "needs_human": True, "detail": "reasoning refused/failed"}); continue
+            white = defend(f, code, red, run_dir=run_dir)
+            judge = arbitrate(f, red, white, run_dir=run_dir)
+        except Exception as e:
+            # One finding's model failure must never kill the whole audit.
+            # "error" blocks the badge and routes to human; the run completes.
+            verdicts.append({**_slim(f), "disposition": "error", "needs_human": True,
+                             "detail": f"adjudication failed: {type(e).__name__}: {str(e)[:160]}"})
+            continue
         entry = {**_slim(f), "red_exploitable": red.get("exploitable"),
                  "white_agrees": white.get("agree_with_red"), "judge": judge.get("verdict"),
                  "needs_human": judge.get("needs_human")}
