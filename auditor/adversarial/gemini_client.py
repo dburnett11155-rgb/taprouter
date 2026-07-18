@@ -54,6 +54,7 @@ def call_json(system: str, user: str, *, model: str = None, run_dir=None,
                 retry_after = r.headers.get("Retry-After")
                 wait = int(retry_after) if (retry_after and retry_after.isdigit()) else 25 * (attempt + 1)
                 last_err = f"429 rate limit (waited {wait}s)"
+                if run_dir: _log(run_dir, label, model, system, user, r.text[:500], ok=False, attempt=attempt)
                 time.sleep(wait); continue
             if not r.ok:  # 403 etc — surface the real reason, do not blindly retry
                 last_err = f"{r.status_code}: {r.text[:300]}"
