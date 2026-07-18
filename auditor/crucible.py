@@ -61,26 +61,41 @@ def audit(target=None, deep=False, do_sandbox=True):
                  "white_agrees": white.get("agree_with_red"), "judge": judge.get("verdict"),
                  "needs_human": judge.get("needs_human")}
 
-        # Layer 3: sandbox-prove when the debate says real (or is disputed) and sandbox is on
-        if do_sandbox and (red.get("exploitable") or judge.get("needs_human")):
-            status, detail = _sandbox_prove(f, code, red, run_dir, log)
-            entry["sandbox"] = status; entry["sandbox_detail"] = detail
-            red_expected_bug = red.get("exploitable")
-            if status == "confirmed":
-                entry["disposition"] = "CONFIRMED_DEFECT"          # proven real -> block
-            elif status == "not_confirmed":
-                # exploit ran but did NOT demonstrate the defect
-                entry["disposition"] = "cleared_by_failed_exploit"  # tried, couldn't break it
-            else:  # inconclusive: couldn't build a working exploit
-                if red_expected_bug:
-                    entry["disposition"] = "UNRESOLVED"             # Red suspected a bug, unproven -> block + human
-                    entry["needs_human"] = True
-                else:
-                    entry["disposition"] = "cleared_consistent"     # Red=safe, White=safe, no exploit buildable -> clear
-        elif judge.get("verdict") == "dismissed_cosmetic":
+        # Disposition. The sandbox CONFIRMS Red's exploitable claims and breaks ties —
+        # it is NOT needed to re-clear a finding Red+White already judged safe.
+        red_says_bug = red.get("exploitable")
+        # Use White's EXPLICIT agree_with_red signal, not an inferred field comparison.
+        # A real dispute is only when White explicitly says it does NOT agree with Red.
+        red_white_disagree = (white.get("agree_with_red") is False)
+        if judge.get("verdict") == "dismissed_cosmetic":
             entry["disposition"] = "dismissed_cosmetic"
+        elif red_white_disagree or judge.get("needs_human"):
+            # genuine dispute -> try sandbox to break the tie, else human
+            if do_sandbox:
+                status, detail = _sandbox_prove(f, code, red, run_dir, log)
+                entry["sandbox"] = status; entry["sandbox_detail"] = detail
+                if status == "confirmed":
+                    entry["disposition"] = "CONFIRMED_DEFECT"
+                else:
+                    entry["disposition"] = "disputed_needs_human"; entry["needs_human"] = True
+            else:
+                entry["disposition"] = "disputed_needs_human"; entry["needs_human"] = True
+        elif red_says_bug:
+            # Red says exploitable and White agrees -> PROVE it in the sandbox
+            if do_sandbox:
+                status, detail = _sandbox_prove(f, code, red, run_dir, log)
+                entry["sandbox"] = status; entry["sandbox_detail"] = detail
+                if status == "confirmed":
+                    entry["disposition"] = "CONFIRMED_DEFECT"
+                elif status == "not_confirmed":
+                    entry["disposition"] = "cleared_by_failed_exploit"
+                else:
+                    entry["disposition"] = "UNRESOLVED"; entry["needs_human"] = True  # claimed bug, unproven
+            else:
+                entry["disposition"] = "needs_sandbox"
         else:
-            entry["disposition"] = "needs_sandbox" if do_sandbox else "debate_only"
+            # Red says NOT exploitable and White agrees -> cleared by debate (two safe signals)
+            entry["disposition"] = "cleared_by_debate"
         verdicts.append(entry)
         log.info(f"  {f['file']}:{f['lines'][:1]} [{f['severity']}] -> {entry['disposition']}")
 
