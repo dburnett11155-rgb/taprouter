@@ -32,10 +32,64 @@ def _sandbox_prove(finding, code, red, run_dir, log):
     subprocess.run([forge, "clean"], cwd=sbx, capture_output=True)
     r = subprocess.run([forge, "test", "--match-path", "test/Generated.t.sol"],
                        cwd=sbx, capture_output=True, text=True, timeout=180)
-    passed = "[PASS]" in r.stdout
+    passed_vuln = "[PASS]" in r.stdout
     logging_setup.save_raw(run_dir, f"sandbox_{finding['file'].replace('/','_')}_{finding['lines'][:1]}.txt", r.stdout + r.stderr)
-    # test PASSES on vulnerable code => defect is real and exploitable
-    return ("confirmed" if passed else "not_confirmed"), ("exploit test passed on current code" if passed else "exploit test did not pass — defect not demonstrated")
+    if not passed_vuln:
+        return "not_confirmed", "exploit test did not pass on current code — defect not demonstrated"
+    # DIFFERENTIAL POLARITY CHECK: a test that passes on vulnerable code is only a valid
+    # proof if it FAILS on patched code. Otherwise it may be passing vacuously / wrong-polarity.
+    flipped, detail = _differential_flip(sbx, finding, code, forge, run_dir)
+    if flipped is True:
+        return "confirmed", "exploit passed on vulnerable code AND failed on patched copy (polarity verified)"
+    if flipped is False:
+        return "inconclusive", f"exploit passed on BOTH vulnerable and patched code — not a valid proof ({detail})"
+    return "inconclusive", f"polarity unverifiable ({detail}) — routing to human"
+
+def _differential_flip(sbx, finding, code, forge, run_dir):
+    """Apply a mechanical fix to a copy of the target and rerun the SAME test.
+    Returns (True flipped / False no-flip / None unverifiable, detail).
+    Currently handles the CEI-reorder reentrancy class; other classes return None (-> human)."""
+    import re
+    patched = _mechanical_patch(code)
+    if patched is None:
+        return None, "no mechanical patch for this defect class"
+    if patched == code:
+        return None, "mechanical patch made no change"
+    tgt = sbx / "src" / Path(finding["file"]).name
+    original = tgt.read_text()
+    try:
+        tgt.write_text(patched)
+        subprocess.run([forge, "clean"], cwd=sbx, capture_output=True)
+        pr = subprocess.run([forge, "test", "--match-path", "test/Generated.t.sol"],
+                            cwd=sbx, capture_output=True, text=True, timeout=180)
+        logging_setup.save_raw(run_dir, f"patched_{finding['file'].replace('/','_')}_{finding['lines'][:1]}.txt", pr.stdout + pr.stderr)
+        passed_on_patched = "[PASS]" in pr.stdout
+        compiled = "Compiler run failed" not in pr.stdout and "Error" not in pr.stderr[:200]
+        if not compiled:
+            return None, "patched copy failed to compile"
+        return (not passed_on_patched), ("test failed on patched (good)" if not passed_on_patched else "test still passed on patched (bad)")
+    finally:
+        tgt.write_text(original)
+
+def _mechanical_patch(code):
+    """Deterministic fix for the CEI-violation reentrancy class: move a
+    `balances[...] = 0;` (state zeroing) to BEFORE the external `.transfer(` call.
+    Returns patched code, or None if the pattern isn't recognized (other bug class)."""
+    import re
+    zero = re.search(r'\n(\s*)(balances\[[^\]]+\]\s*=\s*0\s*;)', code)
+    xfer = re.search(r'\n\s*[\w.]+\.transfer\([^;]*\);', code)
+    if not zero or not xfer:
+        return None
+    if zero.start() < xfer.start():
+        return None  # already CEI-safe, nothing to flip
+    zline = zero.group(2)
+    indent = zero.group(1)
+    code_no_zero = code[:zero.start()] + code[zero.end():]
+    xfer2 = re.search(r'\n(\s*)([\w.]+\.transfer\([^;]*\);)', code_no_zero)
+    if not xfer2:
+        return None
+    injected = "\n" + xfer2.group(1) + zline + code_no_zero[xfer2.start():]
+    return code_no_zero[:xfer2.start()] + injected
 
 def audit(target=None, deep=False, do_sandbox=True):
     target = target or "src"
