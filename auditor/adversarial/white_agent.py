@@ -5,7 +5,7 @@ signal the Judge weighs, and it guards against a single agent's error becoming t
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from adversarial import gemini_client
+from adversarial import llm_client
 
 SYSTEM = """You are a Solidity remediation engineer helping a developer harden their own contract
 before deployment. A reviewer (Red) has assessed whether a static-analysis finding is a real defect.
@@ -52,7 +52,7 @@ CODE UNDER TEST:
 
 If Red found a real exploit, design the minimal patch (no signature changes). If Red dismissed it,
 independently verify Red is correct — and if Red is WRONG and the bug is real, say so."""
-    return gemini_client.call_json(SYSTEM, user, label="white", run_dir=run_dir, temperature=0.2)
+    return llm_client.call_json(SYSTEM, user, label="white", run_dir=run_dir, temperature=0.2)
 
 if __name__ == "__main__":
     from dotenv import load_dotenv

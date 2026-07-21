@@ -6,7 +6,7 @@ Red/White disagreement to human review, and preserves tool severity as immutable
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from adversarial import gemini_client
+from adversarial import llm_client
 
 SYSTEM = """You are the lead Solidity reviewer arbitrating between two colleagues helping a
 developer harden their contract: Red (assesses whether a finding is a real defect) and White
@@ -53,7 +53,7 @@ WHITE (defense/verification): agree_with_red={white_verdict.get('agree_with_red'
 
 Render your verdict. Remember: you cannot finally clear a high/medium finding by reasoning — route
 it to sandbox. Only dismiss outright if it is a cosmetic category with no possible exploit path."""
-    return gemini_client.call_json(SYSTEM, user, label="judge", run_dir=run_dir, temperature=0.1)
+    return llm_client.call_json(SYSTEM, user, label="judge", run_dir=run_dir, temperature=0.1)
 
 if __name__ == "__main__":
     from dotenv import load_dotenv

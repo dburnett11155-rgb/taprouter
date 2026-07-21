@@ -4,7 +4,7 @@ Red never clears a finding — it either produces an exploit hypothesis or repor
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from adversarial import gemini_client
+from adversarial import llm_client
 
 SYSTEM = """You are a Solidity security code reviewer helping a developer harden their own
 contract before deployment. A static analyzer has flagged a pattern. Your job is to determine
@@ -51,7 +51,7 @@ CODE UNDER TEST:
 Attempt to build a concrete exploit for this finding. If the triage hint suggests a common
 false-positive pattern, VERIFY that pattern actually holds in this code before accepting it —
 do not trust the hint blindly; confirm it against the code."""
-    return gemini_client.call_json(SYSTEM, user, label="red", run_dir=run_dir, temperature=0.3)
+    return llm_client.call_json(SYSTEM, user, label="red", run_dir=run_dir, temperature=0.3)
 
 if __name__ == "__main__":
     # Test against a REAL finding: the TapVault reentrancy false-positive we hand-verified.

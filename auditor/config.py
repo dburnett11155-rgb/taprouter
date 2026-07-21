@@ -30,9 +30,19 @@ MYTHRIL_ENABLED = False         # opt-in via --deep; Slither+Aderyn are the fast
 
 # Gemini model tiers by role (rolling aliases — never hard-pin a version)
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
-MODEL_TRIAGE = "gemini-flash-latest"    # ingestion: normalize, dedupe, summarize findings
-MODEL_DEBATE = "gemini-pro-latest"      # Red/White/Judge: exploit reasoning + patch design
+DEEPSEEK_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+# LLM provider switch for the certification engine. "deepseek" is primary (no daily RPD cap,
+# unlike Gemini Tier-1's 250/day). Gemini path retained, unused, for reversibility.
+LLM_PROVIDER = "deepseek"
+# Model IDs resolve per-provider below.
+if LLM_PROVIDER == "deepseek":
+    MODEL_TRIAGE = "deepseek-v4-flash"   # ingestion: normalize, dedupe, summarize
+    MODEL_DEBATE = "deepseek-v4-pro"     # Red/White/Judge: exploit reasoning (explicit ID, not reasoner alias)
+else:
+    MODEL_TRIAGE = "gemini-flash-latest"
+    MODEL_DEBATE = "gemini-pro-latest"
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+DEEPSEEK_BASE = "https://api.deepseek.com"
 
 # Severity ordering — tool findings are GROUND TRUTH; the LLM triages, never overturns.
 SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1, "informational": 0, "optimization": 0}
