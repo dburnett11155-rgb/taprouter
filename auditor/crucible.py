@@ -21,6 +21,30 @@ def _code_context(finding, foundry_root):
     except Exception:
         return f"// could not read {finding['file']}"
 
+def _persist_sandbox(sbx, finding, run_dir, forge_output, phase="exploit"):
+    """Copy a sandbox's proof artifacts into the run dir so evidence survives the next
+    finding wiping /tmp. Layout: run_dir/sandbox/<phase>_<file>_<line>/{Generated.t.sol,
+    target.sol, forge_output.txt}. Best-effort — never let persistence failure break a run."""
+    import shutil as _sh
+    try:
+        from pathlib import Path as _P
+        sbx = _P(sbx)
+        tag = f"{phase}_{finding['file'].replace('/','_')}_{(finding.get('lines') or ['x'])[0]}"
+        dest = _P(run_dir) / "sandbox" / tag
+        dest.mkdir(parents=True, exist_ok=True)
+        gen_t = sbx / "test" / "Generated.t.sol"
+        if gen_t.exists():
+            _sh.copy(gen_t, dest / "Generated.t.sol")
+        src_dir = sbx / "src"
+        if src_dir.exists():
+            tgt = src_dir / _P(finding["file"]).name
+            if tgt.exists():
+                _sh.copy(tgt, dest / _P(finding["file"]).name)
+        (dest / "forge_output.txt").write_text(forge_output[:20000])
+        return str(dest)
+    except Exception as e:
+        return f"persist_failed: {type(e).__name__}: {e}"
+
 def _sandbox_prove(finding, code, red, run_dir, log):
     """Generate a proving test and run it against the current (unpatched) target.
     Returns ('confirmed'|'not_confirmed'|'inconclusive', detail)."""
@@ -34,6 +58,9 @@ def _sandbox_prove(finding, code, red, run_dir, log):
                        cwd=sbx, capture_output=True, text=True, timeout=180)
     passed_vuln = "[PASS]" in r.stdout
     logging_setup.save_raw(run_dir, f"sandbox_{finding['file'].replace('/','_')}_{finding['lines'][:1]}.txt", r.stdout + r.stderr)
+    # PERSIST the proving artifact before the next finding clobbers /tmp. A certification
+    # tool must retain the proof of what it certified — the .t.sol, the target, forge output.
+    _persist_sandbox(sbx, finding, run_dir, r.stdout + r.stderr, phase="exploit")
     if not passed_vuln:
         return "not_confirmed", "exploit test did not pass on current code — defect not demonstrated"
     # DIFFERENTIAL POLARITY CHECK: a test that passes on vulnerable code is only a valid
