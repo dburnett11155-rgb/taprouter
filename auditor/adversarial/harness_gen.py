@@ -166,6 +166,13 @@ contract Handler is Test {
         token.approve(address(target), type(uint256).max);
     }
 
+    // Model OUT-OF-BAND token arrival (bridge mints, donations, direct transfers). Many
+    // protocols gate functions on tokens already being present; without this those paths
+    // revert forever and their invariants pass without ever being stressed.
+    function arriveTokens(uint256 amt) external {
+        token.mint(address(target), bound(amt, 1, 1e21));
+    }
+
 __WRAPPERS__}
 
 contract CrucibleInvariants is Test {
