@@ -12,6 +12,7 @@ from adversarial.red_agent import prosecute
 from adversarial.white_agent import defend
 from adversarial.judge_agent import arbitrate
 from adversarial import exploit_generator
+from adversarial import invariant_pass
 
 def _code_context(finding, foundry_root):
     """Read the flagged file (full — contracts are small enough) for the agents."""
@@ -118,7 +119,7 @@ def _mechanical_patch(code):
     injected = "\n" + xfer2.group(1) + zline + code_no_zero[xfer2.start():]
     return code_no_zero[:xfer2.start()] + injected
 
-def audit(target=None, deep=False, do_sandbox=True):
+def audit(target=None, deep=False, do_sandbox=True, do_invariants=True):
     target = target or "src"
     run_dir = logging_setup.new_run_dir()
     log = logging_setup.get_logger(run_dir)
@@ -187,16 +188,39 @@ def audit(target=None, deep=False, do_sandbox=True):
         verdicts.append(entry)
         log.info(f"  {f['file']}:{f['lines'][:1]} [{f['severity']}] -> {entry['disposition']}")
 
+    # ---- Layer 4: contract-level invariant pass (confidence ladder) ----
+    # The loop above adjudicates what SCANNERS flagged. This reasons about whole contracts.
+    inv_findings = []
+    if do_invariants:
+        contract_files = sorted({f["file"] for f in blocking if f["file"].endswith(".sol")})
+        if contract_files:
+            log.info(f"Layer 4: invariant pass over {len(contract_files)} contract(s)")
+            try:
+                inv_findings = invariant_pass.run(contract_files, froot, run_dir, log=log.info)
+            except Exception as e:
+                log.info(f"  invariant pass failed: {type(e).__name__}: {str(e)[:160]}")
+
     confirmed = [v for v in verdicts if v.get("disposition") == "CONFIRMED_DEFECT"]
     unresolved = [v for v in verdicts if v.get("disposition") in ("UNRESOLVED", "error", "needs_sandbox")]
     # cleared_consistent and cleared_by_failed_exploit and dismissed_cosmetic do NOT block
     disputed = [v for v in verdicts if v.get("needs_human")]
-    badge = (len(confirmed) == 0 and len(unresolved) == 0 and len(disputed) == 0)
+    # A violated invariant blocks the badge. A HELD invariant NEVER earns one — it only
+    # fails to block. The badge asserts "nothing Crucible could mechanically confirm",
+    # never "safe".
+    inv_violated = [i for i in inv_findings if i.get("disposition") == "INVARIANT_VIOLATED"]
+    inv_held = [i for i in inv_findings if i.get("disposition") == "INVARIANT_HELD"]
+    badge = (len(confirmed) == 0 and len(unresolved) == 0 and len(disputed) == 0
+             and len(inv_violated) == 0)
 
     report = {"target": target, "run_id": run_dir.name,
               "scanned": bundle["by_severity"], "adjudicated": len(blocking),
               "confirmed_defects": len(confirmed), "unresolved": len(unresolved),
-              "disputed": len(disputed), "badge_eligible": badge, "verdicts": verdicts}
+              "disputed": len(disputed), "badge_eligible": badge, "verdicts": verdicts,
+              "invariants_violated": len(inv_violated), "invariants_held": len(inv_held),
+              "invariant_findings": inv_findings,
+              "badge_scope": ("no defects Crucible could mechanically confirm; "
+                              f"{len(inv_held)} invariant(s) held within fuzz bounds. "
+                              "NOT a proof of safety — economic/MEV classes unproven.")}
     (config.OUT_DIR / run_dir.name / "audit_report.json").write_text(json.dumps(report, indent=2))
     log.info(f"=== VERDICT: badge_eligible={badge} | confirmed={len(confirmed)} unresolved={len(unresolved)} disputed={len(disputed)} ===")
     return report

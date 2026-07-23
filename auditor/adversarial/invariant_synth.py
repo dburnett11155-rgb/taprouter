@@ -36,6 +36,46 @@ Return ONLY JSON: {"invariants": [{"name": "...", "property": "...", "foundry_co
 Propose 2-5 invariants. Prefer fewer, stronger, genuinely-checkable ones over many weak ones."""
 
 
+def normalize(code, abi, token_names=("usdc", "token", "asset", "currency")):
+    """Rewrite invariant bodies written from INSIDE the contract into test-contract form.
+
+    The model reliably proposes correct PROPERTIES but unreliably respects reference syntax:
+    it emits bare `flashReserve` / `usdc.balanceOf(address(this))` as if inside the target.
+    From the test contract those are undeclared identifiers. Prompting alone did not hold, so
+    this is mechanical: every public view name from the ABI is rewritten to target.<name>(),
+    address(this) becomes address(target), and a token-ish view used as a contract reference
+    becomes the harness mock. Deterministic — independent of model formatting behaviour."""
+    import re as _re
+    views = [e["name"] for e in abi
+             if e.get("type") == "function" and e.get("stateMutability") in ("view", "pure")]
+    if not views:
+        return code
+    # The model's PROPERTIES are consistently sound; its PACKAGING is not — across runs it
+    # has emitted bare asserts, wrapped functions, and inside-the-contract references. If the
+    # function shell is missing, supply it deterministically rather than re-prompting.
+    stripped = code.strip()
+    if stripped and not stripped.startswith("function"):
+        body = "\n".join("    " + ln for ln in stripped.splitlines())
+        code = "function invariant_synthesized() public {\n%s\n}" % body
+    out = code.replace("address(this)", "address(target)")
+    # 1. token-ish view used as a contract handle: usdc.balanceOf(...) -> token.balanceOf(...)
+    for v in views:
+        if v.lower() in token_names:
+            out = _re.sub(r'(?<![\w.])%s\s*\.' % _re.escape(v), "token.", out)
+    # 2. any other view used as a handle: foo.bar() -> target.foo().bar() is ambiguous; skip.
+    # 3. bare state reads -> accessor calls. Skip names already qualified (x.name / target.name)
+    #    and names already being called (name(...)).
+    for v in sorted(views, key=len, reverse=True):
+        esc = _re.escape(v)
+        # CALLED form first: accountedBalance() / shares(user) -> target.<same>(args).
+        # A bare CALL is just as undeclared from the test contract as a bare read; the
+        # lookbehind already protects anything already qualified (target.foo(), token.foo()).
+        out = _re.sub(r'(?<![\w.])%s\s*\(' % esc, "target.%s(" % v, out)
+        # then bare READS: flashReserve -> target.flashReserve()
+        out = _re.sub(r'(?<![\w.])%s(?![\w(])' % esc, "target.%s()" % v, out)
+    return out
+
+
 def synthesize(contract_code, contract_name, run_dir=None):
     """Return list of candidate invariant dicts. Untrusted — Phase 4 validates."""
     user = f"""CONTRACT: {contract_name}
