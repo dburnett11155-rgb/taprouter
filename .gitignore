@@ -33,3 +33,4 @@ mcp-server/templates/__pycache__/
 agents/scribe/completed/
 faucet/feedback.jsonl
 agents/echo/decisions.jsonl
+contracts/src/VulnerableVault.sol
