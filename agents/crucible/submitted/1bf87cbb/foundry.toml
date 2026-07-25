@@ -1,0 +1,23 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+evm_version = "cancun"
+
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@layerzerolabs/oapp/=lib/layerzero-v2/packages/layerzero-v2/evm/oapp/contracts/oapp/",
+    "@layerzerolabs/lz-evm-protocol-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/protocol/",
+    "@layerzerolabs/lz-evm-messagelib-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/messagelib/",
+    "solidity-bytes-utils/=lib/solidity-bytes-utils/",
+    "forge-std/=lib/forge-std/src/"
+]
+
+[lint]
+# Casts in TapMarket (block.timestamp -> uint64, cap-bounded delta -> uint64) are
+# provably safe; full lint still runs on demand via `forge lint`. Disabled at
+# build time only to keep `forge build` output clean during development.
+lint_on_build = false

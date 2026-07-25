@@ -1,0 +1,89 @@
+{
+  "tools_ran": [
+    "slither",
+    "aderyn"
+  ],
+  "tools_failed": [],
+  "total": 4,
+  "by_severity": {
+    "high": 2,
+    "low": 2
+  },
+  "badge_blocking_count": 2,
+  "findings": [
+    {
+      "severity": "high",
+      "tools": [
+        "slither",
+        "aderyn"
+      ],
+      "check_ids": [
+        "unchecked-transfer",
+        "reentrancy-no-eth",
+        "reentrancy-state-change",
+        "empty-require-revert",
+        "state-change-without-event",
+        "unchecked-return",
+        "unsafe-erc20-operation"
+      ],
+      "file": "src/SubmittedVault.sol",
+      "lines": [
+        8
+      ],
+      "description": "SubmittedVault.withdraw() (src/SubmittedVault.sol#8) ignores return value by token.transfer(msg.sender,b) (src/SubmittedVault.sol#8)",
+      "triage_hint": null
+    },
+    {
+      "severity": "high",
+      "tools": [
+        "slither"
+      ],
+      "check_ids": [
+        "uninitialized-state",
+        "constable-states"
+      ],
+      "file": "src/SubmittedVault.sol",
+      "lines": [
+        6
+      ],
+      "description": "SubmittedVault.token (src/SubmittedVault.sol#6) is never initialized. It is used in:\n\t- SubmittedVault.withdraw() (src/SubmittedVault.sol#8)",
+      "triage_hint": null
+    },
+    {
+      "severity": "low",
+      "tools": [
+        "slither",
+        "aderyn"
+      ],
+      "check_ids": [
+        "solc-version",
+        "push-zero-opcode",
+        "unspecific-solidity-pragma"
+      ],
+      "file": "src/SubmittedVault.sol",
+      "lines": [
+        2
+      ],
+      "description": "Version constraint ^0.8.20 contains known severe issues (https://solidity.readthedocs.io/en/latest/bugs.html)\n\t- VerbatimInvalidDeduplication\n\t- FullInlinerNonExpressionSplitArgumentEvaluationOrder\n\t- MissingSideEffectsOnSelectorAccess.\nIt is used by:\n\t- ^0.8.20 (src/SubmittedVault.sol#2)",
+      "triage_hint": "informational pragma advisory; not a code defect."
+    },
+    {
+      "severity": "low",
+      "tools": [
+        "aderyn"
+      ],
+      "check_ids": [
+        "state-change-without-event"
+      ],
+      "file": "src/SubmittedVault.sol",
+      "lines": [
+        7
+      ],
+      "description": "State Change Without Event \u2014 There are state variable changes in this function but no event is emitted. Consider emitting an event to enable offchain indexers to track the changes.",
+      "triage_hint": null
+    }
+  ],
+  "target": "src/SubmittedVault.sol",
+  "run_id": "run_20260725_132708",
+  "elapsed_s": 0.6
+}
