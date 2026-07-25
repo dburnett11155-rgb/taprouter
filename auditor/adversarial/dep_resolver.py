@@ -105,7 +105,20 @@ def resolve(artifact_path, src_dir):
     art = json.loads(Path(artifact_path).read_text())
     ast = art.get("ast")
     if not ast:
-        return None
+        # A plain `forge build` strips the AST (only emitted with --ast). The invariant pass
+        # runs its own builds, so this happens routinely. Rebuild with --ast rather than
+        # silently returning None (which drops dependency resolution to dummy args).
+        import subprocess as _sp, config as _cfg
+        forge = str(_cfg.ANVIL_BIN).replace("anvil", "forge")
+        proj = Path(src_dir).parent
+        _sp.run([forge, "build", "--ast"], cwd=str(proj), capture_output=True, timeout=600)
+        try:
+            art = json.loads(Path(artifact_path).read_text())
+            ast = art.get("ast")
+        except Exception:
+            ast = None
+        if not ast:
+            return None
     ctor = _constructor(ast)
     params = _ctor_params(ctor)
     bindings = _arg_bindings(ctor)

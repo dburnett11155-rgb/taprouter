@@ -16,6 +16,7 @@ Actors are minted+approved before every call — safeTransferFrom contracts reve
 and the campaign explores nothing (the v1-handler failure).
 """
 import re
+from pathlib import Path as _Path
 
 EXCLUDE_NAMES = {
     "renounceOwnership", "transferOwnership", "renounceRole",
@@ -76,7 +77,13 @@ def _arg_exprs(inputs):
     for i, inp in enumerate(inputs):
         t = inp["type"]; p = "a%d" % i
         if t.startswith("uint"):
-            decls.append("%s %s" % (t, p)); args.append("bound(%s, 1, 1e18)" % p)
+            decls.append("%s %s" % (t, p))
+            # bound() returns uint256; cast back to the param's actual width or the call
+            # fails to compile (uint32 setPeer(uint256) -> implicit-conversion error).
+            if t == "uint256":
+                args.append("bound(%s, 1, 1e18)" % p)
+            else:
+                args.append("%s(bound(uint256(%s), 1, 1e18))" % (t, p))
         elif t.startswith("int"):
             decls.append("%s %s" % (t, p)); args.append(p)
         elif t == "address":
@@ -144,6 +151,7 @@ TPL = '''// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/__TARGET_FILE__";
+__IMPORTS__
 
 __MOCK__
 contract Handler is Test {
@@ -182,6 +190,7 @@ contract CrucibleInvariants is Test {
 
     function setUp() public {
         token = new MockERC20();
+__DEPLOY__
         target = new __TARGET__(__CTOR_ARGS__);
         address[] memory a = new address[](__NACTORS__);
         for (uint256 i = 0; i < __NACTORS__; i++) {
@@ -197,8 +206,26 @@ __INVARIANTS__
 '''
 
 
-def generate(target_name, target_file, abi, source, invariants, actors=5):
+def generate(target_name, target_file, abi, source, invariants, actors=5,
+             artifact_path=None, src_dir=None, out_dir=None):
     cls = classify(abi, source)
+    # Dependency resolution: deploy real repo deps + ABI stubs instead of guessing ctor args.
+    # Falls back to _ctor_args(abi) when resolution unavailable, so existing callers are unchanged.
+    dep_stubs_sol, dep_deploy_sol, dep_ctor_args, dep_import_sol = "", "", None, ""
+    if artifact_path and src_dir and out_dir:
+        try:
+            from adversarial import dep_resolver, dep_codegen
+            plan = dep_resolver.resolve(artifact_path, src_dir)
+            if plan is not None:
+                stubs, deploy, ctor, dep_imports = dep_codegen.build(
+                    target_name, plan, src_dir, out_dir)
+                dep_import_sol = "\n".join(
+                    'import "../src/%s";' % f for f in sorted(dep_imports))
+                dep_stubs_sol = "\n".join(stubs.values())
+                dep_deploy_sol = "\n".join("        " + d for d in deploy)
+                dep_ctor_args = ctor
+        except Exception:
+            dep_ctor_args = None  # any failure -> fall back below
     wrappers, skipped = [], []
     for entry in abi:
         if entry.get("type") != "function" or entry.get("stateMutability") in ("view", "pure"):
@@ -224,9 +251,11 @@ def generate(target_name, target_file, abi, source, invariants, actors=5):
     inv_bodies = "\n".join("    " + i.get("foundry_code", "").strip().replace("\n", "\n    ")
                            for i in invariants)
     out = (TPL.replace("__TARGET_FILE__", target_file)
-              .replace("__MOCK__", MOCK_ERC20)
+              .replace("__IMPORTS__", dep_import_sol)
+              .replace("__MOCK__", MOCK_ERC20 + "\n" + dep_stubs_sol)
               .replace("__TARGET__", target_name)
-              .replace("__CTOR_ARGS__", ", ".join(_ctor_args(abi)))
+              .replace("__CTOR_ARGS__", ", ".join(dep_ctor_args if dep_ctor_args is not None else _ctor_args(abi)))
+              .replace("__DEPLOY__", dep_deploy_sol)
               .replace("__NACTORS__", str(actors))
               .replace("__WRAPPERS__", "".join(wrappers))
               .replace("__INVARIANTS__", inv_bodies))

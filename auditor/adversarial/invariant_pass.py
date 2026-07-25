@@ -86,13 +86,14 @@ def _compile_one(harness_sol, source, rel_src):
     return ok, blob
 
 
-def _check_and_repair(cands, name, rel, abi, source, run_dir, log):
+def _check_and_repair(cands, name, rel, abi, source, run_dir, log, artifact, project_root):
     """Compile each candidate in isolation; repair those that fail. Returns survivors.
     One malformed invariant can no longer sink the whole contract's pass."""
     import re as _re
     survivors = []
     for c in cands:
-        harness, _ = harness_gen.generate(name, Path(rel).name, abi, source, [c])
+        harness, _ = harness_gen.generate(name, Path(rel).name, abi, source, [c],
+                                    artifact_path=str(artifact), src_dir=str(Path(project_root)/'src'), out_dir=str(Path(project_root)/'out'))
         rel_src = str(Path("src") / Path(rel).name)
         ok, errs = _compile_one(harness, source, rel_src)
         tries = 0
@@ -105,7 +106,8 @@ def _check_and_repair(cands, name, rel, abi, source, run_dir, log):
             if m:
                 c["name"] = m.group(1)
             c["foundry_code"] = fixed
-            harness, _ = harness_gen.generate(name, Path(rel).name, abi, source, [c])
+            harness, _ = harness_gen.generate(name, Path(rel).name, abi, source, [c],
+                                    artifact_path=str(artifact), src_dir=str(Path(project_root)/'src'), out_dir=str(Path(project_root)/'out'))
             ok, errs = _compile_one(harness, source, rel_src)
             tries += 1
         if ok:
@@ -188,11 +190,12 @@ def run(target_files, project_root, run_dir, log=print, runs=32, depth=60):
         # Per-candidate compile-check + repair BEFORE the campaign. normalize() handles
         # format; this handles semantics (wrong types, nonexistent views) by feeding forge's
         # errors back to the model. One bad invariant no longer sinks the whole contract.
-        cands = _check_and_repair(cands, name, rel, abi, source, run_dir, log)
+        cands = _check_and_repair(cands, name, rel, abi, source, run_dir, log, artifact, project_root)
         if not cands:
             log("  %s: no invariants survived compile-check" % name)
             continue
-        harness, meta = harness_gen.generate(name, Path(rel).name, abi, source, cands)
+        harness, meta = harness_gen.generate(name, Path(rel).name, abi, source, cands,
+                                       artifact_path=str(artifact), src_dir=str(Path(project_root)/'src'), out_dir=str(Path(project_root)/'out'))
         rel_src = str(Path("src") / Path(rel).name)
 
         ok, base_failed, _ = _campaign(harness, source, rel_src, runs, depth)

@@ -85,9 +85,11 @@ def _iface_abi_from_source(iface_name, src_dir):
     return []
 
 
-def build(target_name, plan, src_dir, out_dir, depth=0, _seen=None):
+def build(target_name, plan, src_dir, out_dir, depth=0, _seen=None, _imports=None):
     if _seen is None:
         _seen = set()
+    if _imports is None:
+        _imports = set()
     stubs, deploy, ctor_args = {}, [], []
     for i, e in enumerate(plan):
         kind = e["kind"]; arg = e["arg"]
@@ -106,12 +108,13 @@ def build(target_name, plan, src_dir, out_dir, depth=0, _seen=None):
             else:
                 from adversarial import dep_resolver
                 sub_plan = dep_resolver.resolve(str(sub_art), src_dir) or []
-                sub_stubs, sub_deploy, sub_args = build(impl, sub_plan, src_dir, out_dir,
-                                                        depth + 1, _seen | {impl})
+                sub_stubs, sub_deploy, sub_args, sub_imports = build(
+                    impl, sub_plan, src_dir, out_dir, depth + 1, _seen | {impl}, _imports)
                 stubs.update(sub_stubs)
                 deploy.extend(sub_deploy)
                 deploy.append("%s %s = new %s(%s);" % (impl, var, impl, ", ".join(sub_args)))
                 ctor_args.append("address(%s)" % var)
+                _imports.add(e.get("file") or (impl + ".sol"))
         elif kind == "stub" and e.get("iface"):
             iface = e["iface"]
             abi = _iface_abi_from_source(iface, src_dir)
@@ -125,4 +128,4 @@ def build(target_name, plan, src_dir, out_dir, depth=0, _seen=None):
         else:
             deploy.append('address %s = address(uint160(uint256(keccak256("%s"))));' % (var, arg))
             ctor_args.append(var)
-    return stubs, deploy, ctor_args
+    return stubs, deploy, ctor_args, _imports
