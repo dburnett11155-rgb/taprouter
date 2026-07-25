@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-07-06",
+  "updated": "2026-07-25",
   "specialists": [
     {
       "id": "hermes",
@@ -23,6 +23,18 @@
       "shapeKind": "passthrough",
       "async": true,
       "resultEndpoint": "https://scribe.tappayment.io/result/"
+    },
+    {
+      "id": "crucible",
+      "listingId": 4,
+      "pricePerUse": "0.25 USDC",
+      "priceUnits": 250000,
+      "description": "Smart-contract security auditor (ADVISORY tier). Runs Slither + Aderyn static analysis on submitted Solidity and returns deterministic findings (severity + detector + description) for review by your own AI. No certification badge; not a proof of safety. Needs: contract_name + Solidity source.",
+      "input": "contract_name + Solidity source",
+      "endpoint": "https://crucible.tappayment.io/audit",
+      "shapeKind": "passthrough",
+      "async": true,
+      "resultEndpoint": "https://crucible.tappayment.io/result/"
     }
   ]
 }
