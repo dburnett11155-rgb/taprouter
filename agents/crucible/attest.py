@@ -61,6 +61,37 @@ def sign_attestation(buyer: str, listing_id: int, cumulative_uses: int, expiry: 
     return signed.signature
 
 
+
+
+def sign_run(contract_name: str, findings: list, tier: str, timestamp: int = None):
+    """Proof-of-run attestation: signs that Crucible ran THIS scan on THIS contract at THIS
+    time and produced THESE findings. NOT a safety claim — it attests the run happened and
+    the findings are authentic/untampered. Signed with the same CRUCIBLE_KEY so a verifier
+    recovers CRUCIBLE_ADDRESS. Advisory tier uses this; certification adds a separate badge."""
+    import json, hashlib
+    signer_key = os.getenv("CRUCIBLE_KEY")
+    if not signer_key:
+        raise RuntimeError("CRUCIBLE_KEY not set")
+    ts = timestamp or int(time.time())
+    # canonical digest over the run's identifying content
+    payload = json.dumps({"contract": contract_name, "tier": tier, "timestamp": ts,
+                          "findings": findings}, sort_keys=True, separators=(",", ":"))
+    findings_hash = "0x" + hashlib.sha256(payload.encode()).hexdigest()
+    from eth_account.messages import encode_defunct
+    msg = encode_defunct(text=findings_hash)
+    signed = Account.sign_message(msg, private_key=signer_key)
+    return {
+        "kind": "proof-of-run",
+        "claim": "Crucible ran this scan on this contract at this time; these are the exact findings. This attests the RUN, not the contract's safety.",
+        "contract": contract_name,
+        "tier": tier,
+        "timestamp": ts,
+        "findings_sha256": findings_hash,
+        "signer": Web3.to_checksum_address(os.getenv("CRUCIBLE_ADDRESS")),
+        "signature": signed.signature.hex(),
+    }
+
+
 if __name__ == "__main__":
     # Self-test: sign an attestation and recover the signer, confirm it's Hermes.
     from eth_account.messages import encode_typed_data

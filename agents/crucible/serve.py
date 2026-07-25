@@ -11,7 +11,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
 from web3 import Web3
 load_dotenv("/home/dburnett11155/taprouter/.env.local")
-from attest import sign_attestation
+from attest import sign_attestation, sign_run
+import explain as explain_mod
 
 RPC = "https://sepolia.base.org"
 MARKET = Web3.to_checksum_address("0xBfd085f192d2246F1BFBe386DF399335dc894f2c")
@@ -61,7 +62,7 @@ def run_advisory_audit(contract_name, source):
                  "detectors": f.get("check_ids", f.get("check_id")),
                  "description": f.get("description", "")[:400]}
                 for f in bundle["findings"]]
-    return {"contract": contract_name,
+    result = {"contract": contract_name,
             "by_severity": bundle.get("by_severity"),
             "total_findings": bundle.get("total"),
             "findings": findings,
@@ -69,6 +70,16 @@ def run_advisory_audit(contract_name, source):
             "note": "Advisory tier: deterministic Slither + Aderyn findings handed to you for "
                     "review by your own AI. No adjudication, no certification badge, not a proof "
                     "of safety. Upgrade to the certification tier for the full verdict engine."}
+    # additive: plain-language explanation + proof-of-run attestation (never fail the audit on these)
+    try:
+        result["explanation"] = explain_mod.explain(result, certified=False)
+    except Exception as _e:
+        result["explanation"] = {"summary": "(unavailable)", "bottom_line": "advisory scan; not a proof of safety"}
+    try:
+        result["attestation"] = sign_run(contract_name, findings, "advisory")
+    except Exception as _e:
+        result["attestation"] = {"error": "attestation unavailable"}
+    return result
 
 
 def run_job(job_id, body, buyer, esc):
