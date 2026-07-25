@@ -222,7 +222,7 @@ def audit(target=None, deep=False, do_sandbox=True, do_invariants=True):
                               f"{len(inv_held)} invariant(s) held within fuzz bounds. "
                               "NOT a proof of safety — economic/MEV classes unproven.")}
     (config.OUT_DIR / run_dir.name / "audit_report.json").write_text(json.dumps(report, indent=2))
-    log.info(f"=== VERDICT: badge_eligible={badge} | confirmed={len(confirmed)} unresolved={len(unresolved)} disputed={len(disputed)} ===")
+    log.info(f"=== VERDICT: badge_eligible={badge} | confirmed={len(confirmed)} unresolved={len(unresolved)} disputed={len(disputed)} | inv_violated={len(inv_violated)} inv_held={len(inv_held)} ===")
     return report
 
 def _slim(f):

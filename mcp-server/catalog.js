@@ -22,4 +22,16 @@ export const CATALOG = [
     resultEndpoint: "https://scribe.tappayment.io/result/",
     shape: (input, buyer) => ({ ...input, buyer }),
   },
+  {
+    id: "crucible",
+    listingId: 4,
+    pricePerUse: "0.25 USDC",
+    priceUnits: 250000,
+    description: "Smart-contract security auditor (ADVISORY tier). Runs Slither + Aderyn static analysis on submitted Solidity and returns deterministic findings (severity + detector + description) for your own AI to review. No certification badge; not a proof of safety. Needs: contract_name + source.",
+    input: "contract_name + Solidity source",
+    endpoint: "https://crucible.tappayment.io/audit",
+    async: true,
+    resultEndpoint: "https://crucible.tappayment.io/result/",
+    shape: (input, buyer) => ({ ...input, buyer }),
+  },
 ];
