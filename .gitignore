@@ -34,3 +34,8 @@ agents/scribe/completed/
 faucet/feedback.jsonl
 agents/echo/decisions.jsonl
 contracts/src/VulnerableVault.sol
+
+# Crucible runtime scratch — never commit
+agents/crucible/__pycache__/
+agents/crucible/submitted/
+agents/crucible/completed/
