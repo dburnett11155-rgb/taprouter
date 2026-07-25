@@ -103,3 +103,36 @@ if __name__ == "__main__":
         print(f"\n[{c.get('name')}] tracks {c.get('tracked_vars')}")
         print(f"  property: {c.get('property')}")
         print(f"  code:\n{c.get('foundry_code')}")
+
+
+REPAIR_SYSTEM = """You are fixing a Solidity invariant function that failed to compile inside a
+Foundry test contract. The invariant reads state from a deployed contract via a variable named
+`target` (the audited contract's type) and a mock ERC20 named `token`. All state must be read
+through accessor CALLS: target.someView(), target.someMapping(key), token.balanceOf(addr).
+There are NO bare state variables in scope — the invariant lives in a SEPARATE test contract,
+not inside the audited contract. Use assertGe/assertLe/assertEq/assertTrue, not bare assert().
+
+You are given the current code and the exact compiler errors. Return a corrected version that
+compiles, checking the SAME property with the SAME function name.
+Return ONLY JSON: {"foundry_code": "<complete function invariant_...() public { ... }>"}"""
+
+
+def repair(code, compile_errors, run_dir=None, max_tries=2):
+    """Ask the model to fix an invariant that failed to compile, given forge's errors.
+    Returns corrected code (caller re-checks), or None if no change was produced."""
+    from adversarial import llm_client
+    cur = code
+    for attempt in range(max_tries):
+        user = ("CURRENT INVARIANT (does not compile):\n%s\n\nCOMPILER ERRORS:\n%s\n\n"
+                "Return the corrected invariant. Read state through target.<view>() and "
+                "token.<...>. Same property, same function name." % (cur, compile_errors[:1500]))
+        try:
+            out = llm_client.call_json(REPAIR_SYSTEM, user, label="inv_repair_%d" % attempt,
+                                       run_dir=run_dir, temperature=0.1)
+        except Exception:
+            return None
+        fixed = (out.get("foundry_code") or "").strip()
+        if fixed and fixed != cur:
+            return fixed
+        cur = fixed or cur
+    return None

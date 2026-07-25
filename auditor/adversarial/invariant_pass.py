@@ -75,6 +75,46 @@ def _campaign(harness_sol, source, rel_src, runs, depth, verbose=False):
     return True, failed, blob
 
 
+def _compile_one(harness_sol, source, rel_src):
+    """Compile-only check (no fuzzing). Returns (ok, errors)."""
+    (WORK / rel_src).write_text(source)
+    (WORK / "test" / "CrucibleInv.t.sol").write_text(harness_sol)
+    r = subprocess.run([FORGE, "build", "--contracts", "test/CrucibleInv.t.sol"],
+                       cwd=WORK, capture_output=True, text=True, timeout=300)
+    blob = r.stdout + "\n" + (r.stderr or "")
+    ok = "Compiler run failed" not in blob and "Error (" not in blob
+    return ok, blob
+
+
+def _check_and_repair(cands, name, rel, abi, source, run_dir, log):
+    """Compile each candidate in isolation; repair those that fail. Returns survivors.
+    One malformed invariant can no longer sink the whole contract's pass."""
+    import re as _re
+    survivors = []
+    for c in cands:
+        harness, _ = harness_gen.generate(name, Path(rel).name, abi, source, [c])
+        rel_src = str(Path("src") / Path(rel).name)
+        ok, errs = _compile_one(harness, source, rel_src)
+        tries = 0
+        while not ok and tries < 2:
+            fixed = invariant_synth.repair(c.get("foundry_code", ""), errs, run_dir=run_dir)
+            if not fixed:
+                break
+            fixed = invariant_synth.normalize(fixed, abi)
+            m = _re.search(r'function\s+(invariant_\w+)\s*\(', fixed)
+            if m:
+                c["name"] = m.group(1)
+            c["foundry_code"] = fixed
+            harness, _ = harness_gen.generate(name, Path(rel).name, abi, source, [c])
+            ok, errs = _compile_one(harness, source, rel_src)
+            tries += 1
+        if ok:
+            survivors.append(c)
+        else:
+            log("    dropped %s (uncompilable after repair)" % c.get("name", "?"))
+    return survivors
+
+
 def _counterexample_for(blob, inv_name):
     seq, grabbing = [], False
     for line in blob.splitlines():
@@ -145,6 +185,13 @@ def run(target_files, project_root, run_dir, log=print, runs=32, depth=60):
                 else:
                     seen[nm] = 1
                 c["name"] = nm
+        # Per-candidate compile-check + repair BEFORE the campaign. normalize() handles
+        # format; this handles semantics (wrong types, nonexistent views) by feeding forge's
+        # errors back to the model. One bad invariant no longer sinks the whole contract.
+        cands = _check_and_repair(cands, name, rel, abi, source, run_dir, log)
+        if not cands:
+            log("  %s: no invariants survived compile-check" % name)
+            continue
         harness, meta = harness_gen.generate(name, Path(rel).name, abi, source, cands)
         rel_src = str(Path("src") / Path(rel).name)
 
