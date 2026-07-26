@@ -77,8 +77,18 @@ def run_certification(contract_name, source):
         "badge_scope": report.get("badge_scope"),
     }
     # findings list for the explanation (from the verdicts)
-    result["findings"] = report.get("verdicts", [])
+    _CLEARED = {"cleared_by_debate", "cleared_by_failed_exploit", "INVARIANT_HELD"}
+    _annotated = []
+    for v in report.get("verdicts", []):
+        disp = v.get("disposition", "")
+        _annotated.append({
+            "lines": v.get("lines"), "severity": v.get("severity"),
+            "detectors": v.get("detectors"), "disposition": disp,
+            "adjudication": ("CLEARED by engine review — scanner raised this, adversarial debate/exploit testing found it NOT exploitable" if disp in _CLEARED else "STANDS — not cleared by the engine; a genuine concern"),
+        })
+    result["findings"] = _annotated
     result["total_findings"] = report.get("adjudicated")
+    result["confirmed_defects"] = report.get("confirmed_defects")
     try:
         result["explanation"] = explain_mod.explain(result, certified=True)
     except Exception:

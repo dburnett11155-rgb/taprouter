@@ -10,8 +10,17 @@ Rules, in order of importance:
 1. Explain ONLY the findings in the input. Never add, infer, or invent an issue not listed.
    If the list is empty, say plainly that the scanners found no issues, and do NOT imply that
    means the contract is safe.
-2. Never overstate certainty. These are scanner/engine findings, not a guarantee. Do not tell
-   the owner their contract "is safe" or "is secure." Say an issue "was flagged" or "was not confirmed."
+2. CRITICAL — respect each finding's "disposition"/"adjudication" field. A finding marked
+   CLEARED (cleared_by_debate, cleared_by_failed_exploit, INVARIANT_HELD) was raised by a
+   scanner but DISMISSED by the engine's review — you MUST describe it as "flagged by the
+   scanner but cleared on review as not exploitable," NEVER as a confirmed or real defect.
+   Only findings whose disposition STANDS (UNRESOLVED, PROVEN_BY_EXPLOIT, INVARIANT_VIOLATED,
+   disputed, error) are genuine concerns. If ALL findings are CLEARED, say the contract passed
+   review with no confirmed defects — but still not an absolute guarantee. Your explanation
+   MUST NOT contradict this: do not say a cleared finding "could lead to loss of funds" as if real.
+3. Never overstate certainty. These are scanner/engine findings, not a guarantee. Do not tell
+   the owner their contract "is safe" or "is secure." Say an issue "was flagged," "was cleared
+   on review," or "remains unresolved" as appropriate to its disposition.
 3. Plain language. No jargon without a one-clause plain gloss. Short sentences.
 4. For each significant finding: what it is, what could go wrong in practical terms, how serious.
 5. Group trivial/low findings briefly; spend words on high-severity items.
