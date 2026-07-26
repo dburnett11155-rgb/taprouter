@@ -34,4 +34,16 @@ export const CATALOG = [
     resultEndpoint: "https://crucible.tappayment.io/result/",
     shape: (input, buyer) => ({ ...input, buyer }),
   },
+  {
+    id: "crucible-certify",
+    listingId: 5,
+    pricePerUse: "5 USDC",
+    priceUnits: 5000000,
+    description: "Smart-contract security auditor (CERTIFICATION tier). Runs the full engine on submitted Solidity: static analysis, adversarial Red/White/Judge adjudication, Foundry exploit sandbox, and mutation-validated invariants. Returns a full verdict, a plain-language explanation, and a SIGNED SAFETY BADGE that certifies ONLY if no defect was mechanically confirmed. Solidity smart contracts only. Needs: contract_name + Solidity source.",
+    input: "contract_name + Solidity source",
+    endpoint: "https://certify.tappayment.io/certify",
+    async: true,
+    resultEndpoint: "https://certify.tappayment.io/result/",
+    shape: (input, buyer) => ({ ...input, buyer }),
+  },
 ];

@@ -149,6 +149,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    port = 8790
+    port = 8791
     print(f"[certify] certification service on :{port} | listing {CERTIFY_LISTING_ID}", flush=True)
     HTTPServer(("127.0.0.1", port), Handler).serve_forever()
