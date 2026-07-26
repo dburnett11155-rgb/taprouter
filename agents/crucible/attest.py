@@ -92,6 +92,47 @@ def sign_run(contract_name: str, findings: list, tier: str, timestamp: int = Non
     }
 
 
+
+def sign_badge(contract_name: str, report: dict, timestamp: int = None):
+    """Certification safety badge: signs the ladder's ACTUAL verdict. Honest by construction —
+    badge_eligible comes straight from the engine (true only if zero confirmed defects, zero
+    unresolved, zero disputed, zero invariant violations). If the ladder found a defect, the
+    badge says so; it never fakes a pass. Signed with CRUCIBLE_KEY -> recovers CRUCIBLE_ADDRESS.
+    This is the safety claim advisory never makes."""
+    import json, hashlib
+    signer_key = os.getenv("CRUCIBLE_KEY")
+    if not signer_key:
+        raise RuntimeError("CRUCIBLE_KEY not set")
+    ts = timestamp or int(time.time())
+    eligible = bool(report.get("badge_eligible"))
+    verdict = {
+        "contract": contract_name,
+        "badge_eligible": eligible,
+        "confirmed_defects": report.get("confirmed_defects"),
+        "unresolved": report.get("unresolved"),
+        "disputed": report.get("disputed"),
+        "invariants_violated": report.get("invariants_violated"),
+        "invariants_held": report.get("invariants_held"),
+        "run_id": report.get("run_id"),
+        "tier": "certification",
+        "timestamp": ts,
+    }
+    payload = json.dumps(verdict, sort_keys=True, separators=(",", ":"))
+    verdict_hash = "0x" + hashlib.sha256(payload.encode()).hexdigest()
+    from eth_account.messages import encode_defunct
+    signed = Account.sign_message(encode_defunct(text=verdict_hash), private_key=signer_key)
+    return {
+        "kind": "certification-badge",
+        "certified": eligible,
+        "claim": (report.get("badge_scope") if eligible else
+                  "NOT certified: Crucible confirmed one or more defects or could not resolve all findings. See verdict."),
+        "verdict": verdict,
+        "verdict_sha256": verdict_hash,
+        "signer": Web3.to_checksum_address(os.getenv("CRUCIBLE_ADDRESS")),
+        "signature": signed.signature.hex(),
+    }
+
+
 if __name__ == "__main__":
     # Self-test: sign an attestation and recover the signer, confirm it's Hermes.
     from eth_account.messages import encode_typed_data
