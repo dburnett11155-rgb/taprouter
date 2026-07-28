@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-07-26",
+  "updated": "2026-07-28",
   "specialists": [
     {
       "id": "hermes",
@@ -10,7 +10,33 @@
       "description": "On-chain risk oracle for BASE SEPOLIA ONLY. Assesses any EVM address on Base Sepolia and returns a structured risk report. Cannot check other chains like Arbitrum or mainnet.",
       "input": "an 0x EVM address",
       "endpoint": "https://hermes.tappayment.io/assess",
-      "shapeKind": "address"
+      "shapeKind": "address",
+      "displayName": "Hermes",
+      "capabilities": [
+        "risk-assessment",
+        "threat-intelligence",
+        "evm"
+      ],
+      "consumes": [
+        "evm-address"
+      ],
+      "produces": [
+        "risk-report"
+      ],
+      "inputs": {
+        "required": {
+          "address": "evm-address"
+        },
+        "optional": {}
+      },
+      "outputs": {
+        "type": "risk-report",
+        "fields": {
+          "risk": "text",
+          "signals": "json"
+        }
+      },
+      "latency": "seconds"
     },
     {
       "id": "scribe",
@@ -22,7 +48,39 @@
       "endpoint": "https://scribe.tappayment.io/write",
       "shapeKind": "passthrough",
       "async": true,
-      "resultEndpoint": "https://scribe.tappayment.io/result/"
+      "resultEndpoint": "https://scribe.tappayment.io/result/",
+      "displayName": "Scribe",
+      "capabilities": [
+        "content-writing",
+        "seo",
+        "affiliate",
+        "web-research"
+      ],
+      "consumes": [
+        "topic",
+        "url-list",
+        "text"
+      ],
+      "produces": [
+        "article"
+      ],
+      "inputs": {
+        "required": {
+          "topic": "topic",
+          "keyword": "text"
+        },
+        "optional": {
+          "links": "url-list"
+        }
+      },
+      "outputs": {
+        "type": "article",
+        "fields": {
+          "article": "article",
+          "disclosure": "text"
+        }
+      },
+      "latency": "minutes"
     },
     {
       "id": "crucible",
@@ -34,7 +92,36 @@
       "endpoint": "https://crucible.tappayment.io/audit",
       "shapeKind": "passthrough",
       "async": true,
-      "resultEndpoint": "https://crucible.tappayment.io/result/"
+      "resultEndpoint": "https://crucible.tappayment.io/result/",
+      "displayName": "Crucible",
+      "capabilities": [
+        "security-audit",
+        "solidity",
+        "static-analysis"
+      ],
+      "consumes": [
+        "solidity-source"
+      ],
+      "produces": [
+        "audit-report"
+      ],
+      "inputs": {
+        "required": {
+          "contract_name": "string",
+          "source": "solidity-source"
+        },
+        "optional": {}
+      },
+      "outputs": {
+        "type": "audit-report",
+        "fields": {
+          "findings": "finding[]",
+          "explanation": "text",
+          "attestation": "signature",
+          "report": "text"
+        }
+      },
+      "latency": "seconds"
     },
     {
       "id": "crucible-certify",
@@ -46,7 +133,39 @@
       "endpoint": "https://certify.tappayment.io/certify",
       "shapeKind": "passthrough",
       "async": true,
-      "resultEndpoint": "https://certify.tappayment.io/result/"
+      "resultEndpoint": "https://certify.tappayment.io/result/",
+      "displayName": "Crucible Certify",
+      "capabilities": [
+        "security-audit",
+        "solidity",
+        "exploit-proving",
+        "certification"
+      ],
+      "consumes": [
+        "solidity-source"
+      ],
+      "produces": [
+        "audit-report",
+        "certification-badge"
+      ],
+      "inputs": {
+        "required": {
+          "contract_name": "string",
+          "source": "solidity-source"
+        },
+        "optional": {}
+      },
+      "outputs": {
+        "type": "certification-badge",
+        "fields": {
+          "badge": "certification-badge",
+          "verdict": "json",
+          "explanation": "text",
+          "report": "text"
+        }
+      },
+      "latency": "minutes"
     }
-  ]
+  ],
+  "schemaVersion": 1
 }
