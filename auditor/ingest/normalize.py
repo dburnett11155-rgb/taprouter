@@ -27,6 +27,56 @@ def _hint(check_id):
             return hint
     return None
 
+
+# Bug-class families. Two findings merge ONLY if they share a family AND their line
+# ranges overlap/are adjacent — proximity alone is never enough, or two different bugs
+# on neighbouring lines would collapse into one and a real finding would be hidden.
+_FAMILIES = {
+    "reentrancy": ("reentrancy",),
+    "tx-origin": ("tx-origin",),
+    "unchecked-call": ("unchecked-lowlevel", "unchecked-low-level", "low-level-calls", "unchecked-transfer", "unchecked-return"),
+    "eth-send": ("arbitrary-send-eth", "eth-send-unchecked"),
+}
+
+def _family(check_ids):
+    """Return the bug family for a finding, or None if it has no known family."""
+    ids = " ".join([c for c in (check_ids or []) if c]).lower()
+    for fam, pats in _FAMILIES.items():
+        if any(pat in ids for pat in pats):
+            return fam
+    return None
+
+def _ranges_touch(a, b, slack=3):
+    if not a or not b:
+        return False
+    return (min(a) - slack) <= max(b) and (min(b) - slack) <= max(a)
+
+def _group_same_bug(findings):
+    """Collapse findings that are the SAME bug reported by different tools at slightly
+    different line ranges. Conservative by construction: requires a shared family."""
+    out = []
+    for f in findings:
+        fam = _family(f.get("check_ids"))
+        placed = False
+        if fam:
+            for g in out:
+                if _family(g.get("check_ids")) == fam and _ranges_touch(g.get("lines"), f.get("lines")):
+                    # merge into g: union lines/detectors/tools, keep highest severity
+                    g["lines"] = sorted(set((g.get("lines") or []) + (f.get("lines") or [])))
+                    for c in (f.get("check_ids") or []):
+                        if c and c not in g["check_ids"]:
+                            g["check_ids"].append(c)
+                    for t in (f.get("tools") or []):
+                        if t not in g["tools"]:
+                            g["tools"].append(t)
+                    if config.SEVERITY_RANK.get(f["severity"], 0) > config.SEVERITY_RANK.get(g["severity"], 0):
+                        g["severity"] = f["severity"]
+                    placed = True
+                    break
+        if not placed:
+            out.append(dict(f))
+    return out
+
 def normalize(*tool_results) -> dict:
     """Takes N tool result dicts. Returns a unified, deduped, ranked bundle."""
     merged = {}
@@ -52,7 +102,8 @@ def normalize(*tool_results) -> dict:
                     "lines": f.get("lines", []), "description": f["description"],
                     "triage_hint": _hint(f["check_id"]),
                 }
-    findings = sorted(merged.values(),
+    findings = _group_same_bug(list(merged.values()))
+    findings = sorted(findings,
                       key=lambda x: config.SEVERITY_RANK.get(x["severity"], 0), reverse=True)
     from collections import Counter
     sev = Counter(f["severity"] for f in findings)
