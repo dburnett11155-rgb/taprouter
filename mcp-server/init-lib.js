@@ -117,3 +117,59 @@ export async function listAgent(wallet, agentSigner, priceUnits) {
   const receipt = await client.waitForUserOperationReceipt({ hash });
   return { listingId: expectedId, tx: receipt.receipt.transactionHash };
 }
+
+const TAP_VAULT = "0x1360d65342b1F9543ce2A69e07076efE75657025";
+
+const vaultAbi = [
+  "function deposit(uint256 amount)",
+  "function withdraw(uint256 shareAmount)",
+  "function shares(address) view returns (uint256)",
+  "function pendingFees(address) view returns (uint256)",
+];
+
+// Commit idle USDC to the settlement vault. Non-custodial: shares are credited to the
+// caller's own address in the vault contract, withdrawable by them at any time.
+export async function lpDeposit(wallet, amountUnits) {
+  const { createKernelAccountClient } = await import("@zerodev/sdk");
+  const { encodeFunctionData, parseAbi } = await import("viem");
+  const publicClient = createPublicClient({ chain: baseSepolia, transport: http("https://sepolia.base.org") });
+  const entryPoint = getEntryPoint("0.7");
+  const owner = privateKeyToAccount(wallet.ownerKey);
+  const ecdsaValidator = await signerToEcdsaValidator(publicClient, { signer: owner, entryPoint, kernelVersion: KERNEL_V3_1 });
+  const account = await createKernelAccount(publicClient, {
+    plugins: { sudo: ecdsaValidator }, entryPoint, kernelVersion: KERNEL_V3_1, address: wallet.smartAccount,
+  });
+  const client = createKernelAccountClient({ account, chain: baseSepolia, bundlerTransport: http(ZERODEV_RPC) });
+  const erc20 = parseAbi(["function approve(address spender, uint256 amount) returns (bool)"]);
+  const vault = parseAbi(vaultAbi);
+  const hash = await client.sendUserOperation({
+    callData: await account.encodeCalls([
+      { to: USDC, value: 0n, data: encodeFunctionData({ abi: erc20, functionName: "approve", args: [TAP_VAULT, BigInt(amountUnits)] }) },
+      { to: TAP_VAULT, value: 0n, data: encodeFunctionData({ abi: vault, functionName: "deposit", args: [BigInt(amountUnits)] }) },
+    ]),
+  });
+  const receipt = await client.waitForUserOperationReceipt({ hash });
+  return receipt.receipt.transactionHash;
+}
+
+// Withdraw your own committed liquidity. You keep ownership throughout.
+export async function lpWithdraw(wallet, shareUnits) {
+  const { createKernelAccountClient } = await import("@zerodev/sdk");
+  const { encodeFunctionData, parseAbi } = await import("viem");
+  const publicClient = createPublicClient({ chain: baseSepolia, transport: http("https://sepolia.base.org") });
+  const entryPoint = getEntryPoint("0.7");
+  const owner = privateKeyToAccount(wallet.ownerKey);
+  const ecdsaValidator = await signerToEcdsaValidator(publicClient, { signer: owner, entryPoint, kernelVersion: KERNEL_V3_1 });
+  const account = await createKernelAccount(publicClient, {
+    plugins: { sudo: ecdsaValidator }, entryPoint, kernelVersion: KERNEL_V3_1, address: wallet.smartAccount,
+  });
+  const client = createKernelAccountClient({ account, chain: baseSepolia, bundlerTransport: http(ZERODEV_RPC) });
+  const vault = parseAbi(vaultAbi);
+  const hash = await client.sendUserOperation({
+    callData: await account.encodeCalls([
+      { to: TAP_VAULT, value: 0n, data: encodeFunctionData({ abi: vault, functionName: "withdraw", args: [BigInt(shareUnits)] }) },
+    ]),
+  });
+  const receipt = await client.waitForUserOperationReceipt({ hash });
+  return receipt.receipt.transactionHash;
+}
